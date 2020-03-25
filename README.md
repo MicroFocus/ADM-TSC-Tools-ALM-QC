@@ -1,6 +1,6 @@
 # ADM-TSC-Tools - ALM-QC
 ADM TSC tools for ALM QC
-# Quality Center
+# @Quality Center
 __Description:__
 
 __In this repository, you will find examples of Excel macros and VB utiltiies to help you better manager your data.__
