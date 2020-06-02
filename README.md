@@ -10,4 +10,5 @@ __In this repository, you will find examples of Excel macros and VB utiltiies to
 * 3 . __QC_RenameUsers__  - VBA API Utility to rename one or many USERS in Quality Center. 
 * 4 . __QC_Dashboard__ - VB.NET example on how to use OTA to create a Web Application.
 * 5 . __QC_ExportTestToOctaneFormat__ - VBA API Utility to export tests in QC to Excel in format for upload to Octane.
+* 6 . __QC_ModuleCount__ - VBA API Utility to retrieve counts of various entities in a project.
 
