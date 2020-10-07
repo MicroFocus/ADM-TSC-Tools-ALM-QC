@@ -13,4 +13,5 @@ __In this repository, you will find examples of Excel macros and VB utiltiies to
 * 6 . __QC_ModuleCount__ - VBA API Utility to retrieve counts of various entities in a project.
 * 7 . __QC_SADeactivateProjects__ - VBScript example using SA API to deactivate projects.
 * 8 . __QC_SAGenerateProjectList__ - VBScript example using SA API to generate project list.
+* 9 . __QC_RESTSaaSAddonAddUsersToSite__ - Excel Macro to import users to SaaS Administration Add/Endcustomer and projects.
 
