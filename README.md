@@ -14,7 +14,7 @@ __In this repository, you will find examples of Excel macros and VB utiltiies to
 * 7 . __QC_SADeactivateProjects__ - VBScript example using SA API to deactivate projects.
 * 8 . __QC_SAGenerateProjectList__ - VBScript example using SA API to generate project list.
 * 9 . __QC_RESTSaaSAddonAddUsersToSite__ - Excel Macro to import users to SaaS Administration Add/Endcustomer and projects.
-* 10 . __QC_RESTSaaSAdminAddon__ - Excel Macro to Activate or Deactivate Users, Add Users to Projects, Create Projects, Create Users, Delete Users, Delate Users From Projects, List Domains and Projects, and List Users Group Permission using SaaS Administration Addon REST API.
+* 10 . __QC_RESTSaaSAdminAddon__ - Excel Macro to Activate or Deactivate Users, Add Users to Projects, Create Projects, Create Users, Delete Users, Delate Users From Projects, List Domains and Projects, and List Users Group Permission using SaaS Administration Addon REST API.  Version 2 allows for individual users to be added to different project instead of all users being added to same project.
 * 11 . __QC_OTA_Group_Permission__ - VBscript example using OTA API to get group permission for all projects based on user access
 * 12 . __SaaSToolKit_ReNameuser__ -Updated QC_RenameUsers example with API Key 
 * 13 . __SaaSToolKit_UserManagement__ -An example tool for adding users to project, moving user to viewer group, renaming users, and listing users and group permissions.
