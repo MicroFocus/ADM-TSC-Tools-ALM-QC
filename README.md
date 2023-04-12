@@ -18,4 +18,4 @@ __In this repository, you will find examples of Excel macros and VB utiltiies to
 * 11 . __QC_OTA_Group_Permission__ - VBscript example using OTA API to get group permission for all projects based on user access
 * 12 . __SaaSToolKit_ReNameuser__ -Updated QC_RenameUsers example with API Key 
 * 13 . __SaaSToolKit_UserManagement__ -An example tool for adding users to project, moving user to viewer group, renaming users, and listing users and group permissions.
-* 14 . __QC_ExportTestsREST - VBA example using ALM REST API for exporting tests.
+* 14 . __QC_ExportTestsREST__ - VBA example using ALM REST API for exporting tests.
