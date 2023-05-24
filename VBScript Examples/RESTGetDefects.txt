@@ -1,0 +1,249 @@
+' RestGetDefects.vbs
+' retrieve bugs  of a given QC project using REST API
+' arg 0: QC URL
+' arg 1: QC apikey
+' arg 2: QC secret password
+' arg 3: Domain
+' arg 4: Project
+' arg 5: path
+
+ 
+' call it like
+'Usage:
+'cscript RestGetDefects.vbs https://serverurl/qcbin apikey secret domain project c:\temp
+
+'Example:
+'cscript RestGetDefects.vbs https://almserver.saas.microfocus.com/qcbin/qcbin oauth2-token secretpassword default qualitycenter_demo c:\temp
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'Write to log file---
+'///////////////////////////////////////////////////////////////////////////////////
+Sub M_out(path ,filename,method, m1)
+	' NewTextEC.vbs
+	' Sample VBScript to write to a file. With added error-correcting
+	' Author Guy Thomas http://computerperformance.co.uk/
+	 ' VBScript Write File
+	' ---------------------------------------------' 
+
+	Dim objFSO, objFolder, objShell, objTextFile, objFile
+	Dim strDirectory, strFile, strText
+	strDirectory = path
+	strFile = filename
+	strText = m1
+
+	' Create the File System Object
+	Set objFSO = CreateObject("Scripting.FileSystemObject")
+
+	' Check that the strDirectory folder exists
+	If objFSO.FolderExists(strDirectory) Then
+	   Set objFolder = objFSO.GetFolder(strDirectory)
+	Else
+	   Set objFolder = objFSO.CreateFolder(strDirectory)
+	   WScript.Echo "Just created " & strDirectory
+	End If
+
+	If objFSO.FileExists(strDirectory & strFile) Then
+	   Set objFolder = objFSO.GetFolder(strDirectory)
+	Else
+	   Set objFile = objFSO.CreateTextFile(strDirectory & strFile)
+	   objFile.close
+	   Wscript.Echo "Just created " & strDirectory & strFile
+	End If 
+
+	set objFile = nothing
+	set objFolder = nothing
+	' OpenTextFile Method needs a Const value
+	' ForAppending = 8 ForReading = 1, ForWriting = 2
+	Const ForAppending = 8
+
+	Set objTextFile = objFSO.OpenTextFile (strDirectory & strFile, method, True)
+
+	' Writes strText every time you this VBScript
+	objTextFile.WriteLine(strText)
+	objTextFile.Close
+	' End of VBScript to write to a file with error-correcting Code
+End Sub
+
+
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'Timestamp for log
+'// 
+'///////////////////////////////////////////////////////////////////////////////////
+Function LZ(ByVal Number)
+  If Number < 10 Then
+    LZ = "0" & CStr(Number)
+  Else
+    LZ = CStr(Number)
+  End If
+End Function
+
+Function getTimeStamp
+  Dim CurrTime
+  CurrTime = Now()
+
+  getTimeStamp = CStr(Year(CurrTime)) & "-" _
+    & LZ(Month(CurrTime)) & "-" _
+    & LZ(Day(CurrTime)) & " " _
+    & LZ(Hour(CurrTime)) & "_" _
+    & LZ(Minute(CurrTime)) & "_" _
+    & LZ(Second(CurrTime))
+End Function
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'Parse XML string
+'// 
+'///////////////////////////////////////////////////////////////////////////////////
+
+   Function parseFile(xmlfile, xmlquery)
+       on error resume next
+        'Instantiate the XML parser.
+        Dim NodeList
+        Dim MyXMLDom
+        
+        set MyXMLDom = CreateObject("MSXML2.DOMDocument")
+        
+        MyXMLDom.async = "False"
+        
+        'Load the xml string
+        MyXMLDom.Load xmlfile
+        
+        if err.number <> 0 then
+             	wscript.echo err.description
+        end if
+        
+        err.clear
+        set NodeList = MyXMLDom.selectNodes(xmlquery)
+    
+        
+        if err.number <> 0 then
+	        	wscript.echo err.number & "," & err.description &  ". Reason: " & MyXMLDom.parseError.reason & ". Src:" &  MyXMLDom.parseError.line
+			exit function
+        end if
+        set parseFile = NodeList
+
+        
+        set MyXMLDom = Nothing
+    End Function
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'Loop through defects and print to file
+'// 
+'///////////////////////////////////////////////////////////////////////////////////
+Sub PrintDefects(xmlfile, path, filename)
+   Dim NodeList
+        Dim severityValue
+        Dim detectedByValue
+        Dim nameValue
+        Dim idValue
+        Dim statusValue
+
+        set NodeList = parseFile(xmlfile, "/Entities/Entity/Fields")
+    
+	if isempty(nodelist)  then
+	        msgbox nodelist.length
+		wscript.echo "Failed to parse xml response." 
+		exit sub
+	end if
+        M_out path, filename,2, "Defect ID,Summary,Severity,Detected By,Status"
+
+        For x = 0 To NodeList.length - 1
+
+            severityValue = ""
+            detectedByValue = ""
+            nameValue = ""
+            idValue = ""
+            statusValue = ""
+
+            severityValue = NodeList.item(x).selectNodes("Field").item(0).text
+            detectedByValue = NodeList.item(x).selectNodes("Field").item(1).text
+            nameValue = NodeList.item(x).selectNodes("Field").item(2).text
+            idValue = NodeList.item(x).selectNodes("Field").item(3).text
+            statusValue = NodeList.item(x).selectNodes("Field").item(4).text
+            M_out path, filename, 8, idValue & "," & nameValue & "," & severityValue & "," & detectedByValue & "," & statusValue
+
+        Next
+        set NodeList = Nothing
+End Sub
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// --- Main ---
+'///////////////////////////////////////////////////////////////////////////////////
+'On Error Resume Next
+Dim args
+Dim QcURL
+Dim apikey
+Dim secret
+Dim QcDomain
+Dim QcProject
+Dim path
+Dim filename
+Dim restReq
+Dim oathtoken 
+Dim reqHeader
+Dim url
+Dim ResponseText
+
+Set args = WScript.Arguments
+QcURL = args.Item(0)
+apikey = args.Item(1)
+secret = args.Item(2)
+QcDomain = args.Item(3)
+QcProject = args.Item(4)
+path = args.Item(5)
+
+filename = "\DefectReport_" & getTimeStamp & ".csv"
+oathtoken = ""
+
+
+set restReq = CreateObject("MSXML2.ServerXMLHTTP")
+
+url = cstr(QCURL & "/rest/oauth2/login")
+reqHeader = CStr("{""clientId"":""" & apikey & """, ""secret"":""" & secret & """}")
+wscript.echo url
+restReq.open "POST", url, False
+restReq.setRequestHeader "Content-Type", "application/json"
+restReq.send reqHeader
+If restReq.status = "200" Then
+    oathtoken = restReq.getResponseHeader("Set-Cookie")
+else
+    wscript.echo  "Failed to login. Please try again. Return Status: " & restReq.status
+End If
+
+If oathtoken <> "" Then
+
+    'Query for defect
+    url = cstr(QcURL & "/rest/domains/" & QcDomain & "/projects/" & QcProject & "/defects?fields=id,name,severity,detected-by,status")
+    restReq.open "GET", url, False
+    restReq.setRequestHeader "Content-Type", "text/xml"
+    restReq.setRequestHeader "Cookie", oathtoken
+    restReq.send()
+    If restReq.status = "200" Then
+        responsetext = restReq.responseText
+        m_out path,"\Reponse.xml",2, responsetext
+        PrintDefects path & "\Reponse.xml",path,filename
+    else
+        wscript.echo "Defect report failed: " & restReq.status
+    End If
+    
+    'Logout
+    url = CStr(QcURL & "/authentication-point/logout")
+    restReq.open "GET", url, False
+    restReq.send()
+    If restReq.status = "200" Then
+        Wscript.Echo "You have successfully logged out."
+    else
+        Wscript.Echo "Failed to logout: " & restReq.status
+    End If
+    
+End If
+
+
+set restReq = nothing
+set args = nothing
+
