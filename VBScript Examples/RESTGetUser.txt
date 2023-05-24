@@ -1,0 +1,172 @@
+' RestGetUser.vbs
+' retrieve user properties using REST with API Key
+' arg 0: QC URL
+' arg 1: QC apikey
+' arg 2: QC secret password
+' arg 3: Domain
+' arg 4: Project
+' arg 5: path
+
+ 
+' call it like
+'Usage:
+'cscript RestGetUser.vbs https://serverurl/qcbin apikey secret domain project c:\temp
+
+'Example:
+
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'Write to log file---
+'///////////////////////////////////////////////////////////////////////////////////
+Sub M_out(path ,filename,method, m1)
+	' NewTextEC.vbs
+	' Sample VBScript to write to a file. With added error-correcting
+	' Author Guy Thomas http://computerperformance.co.uk/
+	 ' VBScript Write File
+	' ---------------------------------------------' 
+
+	Dim objFSO, objFolder, objShell, objTextFile, objFile
+	Dim strDirectory, strFile, strText
+	strDirectory = path
+	strFile = filename
+	strText = m1
+
+	' Create the File System Object
+	Set objFSO = CreateObject("Scripting.FileSystemObject")
+
+	' Check that the strDirectory folder exists
+	If objFSO.FolderExists(strDirectory) Then
+	   Set objFolder = objFSO.GetFolder(strDirectory)
+	Else
+	   Set objFolder = objFSO.CreateFolder(strDirectory)
+	   WScript.Echo "Just created " & strDirectory
+	End If
+
+	If objFSO.FileExists(strDirectory & strFile) Then
+	   Set objFolder = objFSO.GetFolder(strDirectory)
+	Else
+	   Set objFile = objFSO.CreateTextFile(strDirectory & strFile)
+	   objFile.close
+	   Wscript.Echo "Just created " & strDirectory & strFile
+	End If 
+
+	set objFile = nothing
+	set objFolder = nothing
+	' OpenTextFile Method needs a Const value
+	' ForAppending = 8 ForReading = 1, ForWriting = 2
+	Const ForAppending = 8
+
+	Set objTextFile = objFSO.OpenTextFile (strDirectory & strFile, method, True)
+
+	' Writes strText every time you this VBScript
+	objTextFile.WriteLine(strText)
+	objTextFile.Close
+	' End of VBScript to write to a file with error-correcting Code
+End Sub
+
+
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'Timestamp for log
+'// 
+'///////////////////////////////////////////////////////////////////////////////////
+Function LZ(ByVal Number)
+  If Number < 10 Then
+    LZ = "0" & CStr(Number)
+  Else
+    LZ = CStr(Number)
+  End If
+End Function
+
+Function getTimeStamp
+  Dim CurrTime
+  CurrTime = Now()
+
+  getTimeStamp = CStr(Year(CurrTime)) & "-" _
+    & LZ(Month(CurrTime)) & "-" _
+    & LZ(Day(CurrTime)) & " " _
+    & LZ(Hour(CurrTime)) & "_" _
+    & LZ(Minute(CurrTime)) & "_" _
+    & LZ(Second(CurrTime))
+End Function
+
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// --- Main ---
+'///////////////////////////////////////////////////////////////////////////////////
+'On Error Resume Next
+Dim args
+Dim QcURL
+Dim apikey
+Dim secret
+Dim QcDomain
+Dim QcProject
+Dim path
+Dim filename
+Dim restReq
+Dim oathtoken 
+Dim reqHeader
+Dim url
+Dim ResponseText
+
+Set args = WScript.Arguments
+QcURL = args.Item(0)
+apikey = args.Item(1)
+secret = args.Item(2)
+QcDomain = args.Item(3)
+QcProject = args.Item(4)
+path = args.Item(5)
+
+filename = "\DefectReport_" & getTimeStamp & ".csv"
+oathtoken = ""
+
+
+set restReq = CreateObject("MSXML2.ServerXMLHTTP")
+
+url = cstr(QCURL & "/rest/oauth2/login")
+reqHeader = CStr("{""clientId"":""" & apikey & """, ""secret"":""" & secret & """}")
+wscript.echo url
+restReq.open "POST", url, False
+restReq.setRequestHeader "Content-Type", "application/json"
+restReq.send reqHeader
+If restReq.status = "200" Then
+    oathtoken = restReq.getResponseHeader("Set-Cookie")
+else
+    wscript.echo  "Failed to login. Please try again. Return Status: " & restReq.status
+End If
+
+If oathtoken <> "" Then
+
+    'Query for defect
+    url = cstr(QcURL & "/rest/domains/" & QcDomain & "/projects/" & QcProject & "/customization/users/saas_cpaterson")
+    restReq.open "GET", url, False
+    restReq.setRequestHeader "Content-Type", "text/xml"
+    restReq.setRequestHeader "Cookie", oathtoken
+    restReq.send()
+    If restReq.status = "200" Then
+        responsetext = restReq.responseText
+        m_out path,"\Reponse.xml",2, responsetext
+    else
+        wscript.echo "User report failed: " & restReq.status
+    End If
+    
+    'Logout
+    url = CStr(QcURL & "/rest/site-session")
+    restReq.open "DELETE", url, False
+    restReq.setRequestHeader "Cookie", oathtoken
+    restReq.send()
+    If restReq.status = "200" Then
+        Wscript.Echo "You have successfully logged out."
+    else
+        Wscript.Echo "Failed to logout: " & restReq.status
+    End If
+    
+End If
+
+
+set restReq = nothing
+set args = nothing
+
