@@ -1,0 +1,77 @@
+' DisplayDefects.vbs
+' retrieves defects from QC
+' arg 0: QC URL
+' arg 1: QC user
+' arg 2: QC password
+' arg 3: QC domain
+' arg 4: QC project
+ 
+' call it like
+' cscript DisplayDefects.vbs https://<almhost>/qcbin/ <user> <password> <domain> <project>
+
+Public Sub Output (Content)
+	WScript.StdOut.WriteLine Content
+End Sub
+
+' --- Main ---
+'On Error Resume Next
+Dim args
+Dim tdConnection
+Dim QcURL
+Dim QcUser
+Dim QcPassword
+Dim QcDomain
+Dim QcProject
+Dim BugFact 
+Dim BugList
+Dim bugObj 
+Dim i
+
+Set args = WScript.Arguments
+QcURL = args.Item(0)
+QcUser = args.Item(1)
+QcPassword = args.Item(2)
+QcDomain = args.Item(3)
+QcProject = args.Item(4)
+
+
+Set tdConnection = CreateObject("TDApiOle80.TDConnection.1")
+If tdConnection Is Nothing Then
+	Output "Could not create TD Connection object"
+Else
+	tdConnection.InitConnectionEx QcURL
+	If tdConnection.Connected = False Then
+		Output "Could not initialize QC connection"
+	Else
+		tdConnection.Login QCUser, QcPassword
+		If tdConnection.LoggedIn = False Then
+			Output "Could not log into QC"
+		Else
+			tdConnection.Connect QCDomain, QCProject
+
+			If tdConnection.ProjectConnected = False Then
+				Output "Invalid domain/project"
+			Else
+				Output "Connecting to project " & QcDomain & "." & QcProject
+
+				' Get the bug factory from the tdConnection.
+				Output "Bug ID,Status,Summary"
+				set BugFact = tdConnection.BugFactory
+				 Set BugList = BugFact.NewList("")
+				 For each bugObj in BugList
+				    output bugObj.ID & "," & bugObj.Field("BG_STATUS") & "," & bugObj.Field("BG_SUMMARY") 
+				 Next
+
+				 tdConnection.DisconnectProject
+			End If
+			tdConnection.Logout
+		End If
+		tdConnection.ReleaseConnection
+		output "QC Disconnected."
+	End If
+End If	
+
+set tdConnection = nothing
+set BugFact = nothing
+set BugList = nothing
+set bugObj = nothing

@@ -1,0 +1,119 @@
+' AddAttachment.vbs
+' retrieves requirement types of a given QC project
+' arg 0: QC URL
+' arg 1: QC user
+' arg 2: QC password
+' arg 3: QC domain
+' arg 4: QC project
+ 
+' call it like
+' cscript AddAttachment.vbs http://<qchost>:8080/qcbin/ <user> <password> <domain> <project>
+
+Public Sub Output (Content)
+	WScript.StdOut.WriteLine Content
+End Sub
+
+' --- Main ---
+'On Error Resume Next
+Dim args
+Dim tdConnectiononnection
+Dim QcURL
+Dim QcUser
+Dim QcPassword
+Dim QcDomain
+Dim QcProject
+Dim Projects
+Dim BugFact 
+Dim bugObj 
+Dim attachFact 
+Dim attachObj 
+Dim ExStrg 
+Dim rc
+Dim current 
+Dim total 
+Dim ret
+Dim message
+Dim currprogress
+
+Set args = WScript.Arguments
+QcURL = args.Item(0)
+QcUser = args.Item(1)
+QcPassword = args.Item(2)
+QcDomain = args.Item(3)
+QcProject = args.Item(4)
+AttachPath = args.Item(5)
+AttachName = args.Item(6)
+DefectID = args.Item(7)
+
+Set tdConnection = CreateObject("TDApiOle80.tdConnection")
+If tdConnection Is Nothing Then
+	Output "Could not create TD Connection object"
+Else
+	tdConnection.InitConnectionEx QcURL
+	If tdConnection.Connected = False Then
+		Output "Could not initialize QC connection"
+	Else
+		tdConnection.Login QCUser, QcPassword
+		If tdConnection.LoggedIn = False Then
+			Output "Could not log into QC"
+		Else
+			tdConnection.Connect QCDomain, QCProject
+
+			If tdConnection.ProjectConnected = False Then
+				Output "Invalid domain/project"
+			Else
+				Output "Connecting to project " & QcDomain & "." & QcProject
+
+				' Get the bug factory from the tdConnection.
+				'tdConnection is the global tdConnection object.
+				 set BugFact = tdConnection.BugFactory
+				 
+				 'Get a bug object.
+				 set bugObj = BugFact.Item(DefectID)
+
+				'-----------------------------------------
+				 'Use Bug.Attachments to
+				 ' get the bug attachment factory.
+				 set attachFact = bugObj.Attachments
+				  
+				 'Add a new extended storage object,an attachment
+				 ' named SampleAttachment.txt.
+				 set attachObj = attachFact.AddItem(AttachName)
+				 
+				 ' Modify the attachment description.
+				 attachObj.Description = "Bug Sample Attachment"
+				 
+				 ' Update the attachment record in the project database.
+				 attachObj.Post()
+				 
+				 ' Get the bug attachment extended storage object.
+				  set ExStrg = attachObj.AttachmentStorage
+				 
+				 'Specify the location of the file to upload.
+				  ExStrg.ClientPath = AttachPath
+				 '-----------------------------------------
+				 
+				 'Use IExtendedStorage.Save to upload the file.
+				  ExStrg.Save AttachName, False
+				  ExStrg.GetLastError()
+				  If Err.Number <> 0 Then
+				      Output Err.Description
+				  End If
+				  current = 0
+				  total = 0
+				  ret = 0
+				  Output "Uploading attachment " & AttachName & " from " & AttachPath & " to Defect " & DefectID
+				  Do While ret = 0
+				    currprogress = ExStrg.Progress(clng(total), clng(current))
+				    ret = ExStrg.ActionFinished
+				    'Output current				
+				  Loop
+				 output "Attachment uploaded."
+				 tdConnection.DisconnectProject
+			End If
+			tdConnection.Logout
+		End If
+		tdConnection.ReleaseConnection
+		output "QC Disconnected."
+	End If
+End If	

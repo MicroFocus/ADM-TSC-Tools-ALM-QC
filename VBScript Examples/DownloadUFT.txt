@@ -1,0 +1,142 @@
+' DownloadUFT.vbs
+' Download UFT test  of a given QC project
+' arg 0: QC URL
+' arg 1: QC user
+' arg 2: QC password
+' arg 3: QC domain
+' arg 4: QC project
+' arg 5: path
+' arg 6: test id
+
+ 
+' call it like
+' cscript DownloadUFT.vbs https://<almhost>/qcbin/ <user> <password> <domain> <project> <path>
+'Example:
+'c:\windows\syswow64\cscript DownloadUFT.vbs https://serverurl/qcbin user password domain project c:\temp
+
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'Output to console---
+'///////////////////////////////////////////////////////////////////////////////////
+Public Sub Output (Content)
+	WScript.StdOut.WriteLine Content
+End Sub
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'Download UFT test---
+'///////////////////////////////////////////////////////////////////////////////////
+Sub getUFTTest(TDConnection, path)
+On error resume next
+	Dim mytestFactory
+	Dim testFilter
+	Dim testList
+	Dim mytest
+	Dim TestStorage
+	
+	
+
+	'Get list of tests
+	Set mytestFactory = tdConnection.testFactory
+
+	'Apply filter 
+	Set testFilter = mytestFactory.Filter
+	testFilter.Filter("TS_TYPE") = "QUICKTEST_TEST"
+	'testFilter.Filter("TS_TEST_ID") = '4 or 5 or 6'
+	Set testList = mytestFactory.NewList(testFilter.Text)
+	
+	output "Number of UFT test created today:" & testList.count
+	
+	'Loop through each test and download
+	For Each mytest In testList
+	
+		Set TestStorage = mytest.ExtendedStorage
+		
+		'Need to insure that the path folder exist
+		TestStorage.ClientPath = path & "\" & mytest.Name 
+
+		'Use IExtendedStorage.LoadEx to get the test files.
+		output "Downloading " & mytest.name & " to " & path & "\" & mytest.Name 
+		err.clear
+		TestDownLoadPath = TestStorage.Load("", True)
+		if err.number <> 0 then
+		 output err.descrption
+		end if
+
+	Next
+	
+	set mytestFactory = nothing
+	set testFilter = nothing
+	set testList = nothing
+	set mytest = nothing
+	set TestStorage = nothing
+	
+End Sub
+
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// --- Main ---
+'///////////////////////////////////////////////////////////////////////////////////
+Sub Main
+On Error Resume next
+Dim args
+Dim tdConnection
+Dim QcURL
+Dim QcUser
+Dim QcPassword
+Dim QcDomain
+Dim QcProject
+
+
+
+Set args = WScript.Arguments
+QcURL = args.Item(0)
+QcUser = args.Item(1)
+QcPassword = args.Item(2)
+QcDomain = args.Item(3)
+QcProject = args.Item(4)
+path = args.Item(5)
+
+
+Set tdConnection = CreateObject("TDApiOle80.TDConnection.1")
+If tdConnection Is Nothing Then
+	Output "Could not create TD Connection object"
+Else
+	tdConnection.InitConnectionEx QcURL
+	AttachmentNameList = ""
+	If tdConnection.Connected = False Then
+		Output "Could not initialize QC connection"
+	Else
+		tdConnection.Login QCUser, QcPassword
+		If tdConnection.LoggedIn = False Then
+			Output "Could not log into QC"
+		Else
+			Output "Connecting to project " & QcDomain & "." & QcProject
+			tdConnection.Connect QCDomain, QCProject
+
+			If tdConnection.ProjectConnected = False Then
+				Output "Invalid domain/project"
+			Else
+				
+				getUFTTest tdconnection,path			    
+				tdConnection.DisconnectProject
+			End If
+			tdConnection.Logout
+		End If
+		tdConnection.ReleaseConnection
+		output "QC Disconnected."
+	End If
+End If	
+
+set tdConnection = nothing
+
+End Sub
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// --- Call Main ---
+'///////////////////////////////////////////////////////////////////////////////////
+call Main
+
