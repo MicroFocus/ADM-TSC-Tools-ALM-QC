@@ -1,5 +1,5 @@
 ' AddAttachment.vbs
-' retrieves requirement types of a given QC project
+' Add attachment to a defect
 ' arg 0: QC URL
 ' arg 1: QC user
 ' arg 2: QC password
