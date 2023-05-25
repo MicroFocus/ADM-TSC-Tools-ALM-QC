@@ -1,0 +1,131 @@
+' AddRun.vbs
+' Add run to a test instance
+' arg 0: QC URL
+' arg 1: QC user
+' arg 2: QC password
+' arg 3: QC domain
+' arg 4: QC project
+ 
+' call it like
+'c:/windows/syswow64/cscript AddRun.vbs https://<almhost>/qcbin/ <user> <password> <domain> <project>
+
+Public Sub Output (Content)
+	WScript.StdOut.WriteLine Content
+End Sub
+
+' --- Main ---
+On Error Resume Next
+Dim args
+Dim tdc
+Dim QcURL
+Dim QcUser
+Dim QcPassword
+Dim QcDomain
+Dim QcProject
+Dim i
+
+
+Set args = WScript.Arguments
+QcURL = args.Item(0)
+QcUser = args.Item(1)
+QcPassword = args.Item(2)
+QcDomain = args.Item(3)
+QcProject = args.Item(4)
+Set tdc = CreateObject("TDApiOle80.TDConnection.1")
+If tdc Is Nothing Then
+	Output "Could not create TD Connection object"
+Else
+	tdc.InitConnectionEx QcURL
+	If tdc.Connected = False Then
+		Output "Could not initialize QC connection"
+	Else
+		tdc.Login QCUser, QcPassword
+		If tdc.LoggedIn = False Then
+			Output "Could not log into QC"
+		Else
+			Err.Clear
+			tdc.Connect QCDomain, QCProject
+			if err.number <> 0 Then
+			    
+				msgbox Err.Description & ", QCDomain:" & qcdomain & ", QCProject:" & qcproject 
+			end if
+			If tdc.ProjectConnected = False Then
+				Output "Invalid domain/project"
+			Else
+        			Output "Starting task..."
+				Output "Connecting to project " & QcDomain & "." & QcProject
+
+				Call AddRun()
+        			Output  "Done!"
+
+				tdc.DisconnectProject
+        		End If
+			tdc.Logout
+		End If
+		tdc.ReleaseConnection
+		output "QC Disconnected."
+	End If
+End If	
+
+'////////////////////////////////////////////////////////////////////////
+'Delete run older than specified number of days
+'////////////////////////////////////////////////////////////////////////
+Public Sub AddRun()
+  on error resume next
+	Dim TestSetFact
+    Dim TSTestFact
+	Dim theTSTest
+	Dim runFact
+	Dim newRun
+
+    'Get RunFactory
+    'tdc is the global TDConnection object.
+	set TestSetFact = tdc.TestSetfactory
+	
+	set theTestSet = TestSetFact.Item(1)
+	
+	'Get the tests in testset factory object
+	Set TSTestFact = theTestSet.TSTestFactory
+
+	'Get the test instance with id of 6
+	Set theTSTest = TSTestFact.Item(6)
+
+
+	'Get the run factory of the test instance
+	Set runFact = theTSTest.RunFactory
+
+	'Create a new run
+	Set newRun = runFact.AddItem(null)
+	newRun.Status = "Passed"
+	newRun.Name = "Run_Example_" & now
+	newRun.Post
+
+	'Copy the design steps from test
+	newRun.CopyDesignSteps
+	newRun.Post
+
+	'Get the run steps
+	Set stepFact = newRun.StepFactory
+	Set stepList = stepFact.NewList("")
+
+	'Set status for each step
+	For each mystep in stepList
+		mystep.status = "Passed"
+		mystep.Post
+	Next
+
+	err.clear
+	output "Set test instance " & theTSTest.id & " status."
+	theTSTest.Field("TC_STATUS") = "Passed"
+	theTSTest.autopost = true
+	theTSTest.post
+
+    if err.number <> 0 Then
+		output Err.Description
+	Else
+		output "Run Added on " & CStr(Now) & "."
+	end if
+    
+    output theTSTest.status & "," & theTSTest.islocked
+On error goto 0
+End Sub
