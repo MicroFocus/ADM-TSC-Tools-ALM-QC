@@ -1,0 +1,199 @@
+' DownloadTestAttachments.vbs
+' Download attachments for a test of a given QC project
+' arg 0: QC URL
+' arg 1: QC user
+' arg 2: QC password
+' arg 3: QC domain
+' arg 4: QC project
+' arg 5: path
+' arg 6: test id
+
+ 
+' call it like
+' cscript DownloadTestAttachments.vbs https://<almhost>/qcbin/ <user> <password> <domain> <project> <path> <testid>
+'Example:
+'c:\windows\syswow64\cscript DownloadTestAttachments.vbs https://serverurl/qcbin user password domain project c:\temp\Attachments 42
+
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'Output to console---
+'///////////////////////////////////////////////////////////////////////////////////
+Public Sub Output (Content)
+	WScript.StdOut.WriteLine Content
+End Sub
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'Download attachments---
+'///////////////////////////////////////////////////////////////////////////////////
+Sub getTestAttachments(tdc,path, TestId)
+On error resume next
+
+       	Dim testFilter 		'As TDFilter
+       	Dim myTest		'As Test
+       	Dim attachTestFact 	'As AttachmentFactory
+       	Dim attachlst 		'As List
+       	Dim attachTestObj 	'As Attachment
+       	Dim mytestFactory 	'As TestFactory
+       	Dim testList      	'As List
+       	Dim desstepList 	'As List
+       	Dim desStepObject	'As DesignStep
+       	Dim desstepFact 	'As DesignStepFactory
+       	Dim attachDesStepFact 	'As AttachmentFactory
+       	Dim attachDesStepList 	'As List
+       	Dim attachDesStepObj	'As Attachment
+       	Dim testExtendStorage 	'As IExtendedStorage
+       	Dim desstepExtendStorage 'As IExtendedStorage
+      
+	'Get list of tests
+       	Set mytestFactory = tdc.testFactory
+       	
+       	'Apply test id filter 
+       	Set testFilter = mytestFactory.Filter
+       	testFilter.Filter("TS_TEST_ID") = TestId
+       	Set testList = mytestFactory.NewList(testFilter.Text)
+
+	if testlist.count = 0 then
+		output "Test with id " & testid & " not found."
+		exit sub
+	end if
+	
+	'Get first item in the list
+       	set myTest = testlist.item(1)
+       	
+       	'Get list of attachments from test
+       	Set attachTestFact = myTest.Attachments
+       	Set attachlst = attachTestFact.NewList("")
+       	output "Test:" & myTest.Name & ", Attachment Count: " & attachlst.count 
+
+       	'Download Test Attachments using Extended Storage
+       	For Each attachTestObj In attachlst
+		output "Downloading Attachment " & attachTestObj.Name & " from Test to " & path & "."
+		set testExtendStorage = attachTestObj.AttachmentStorage
+		testExtendStorage.ClientPath = path
+		If Not (attachTestObj.FileSize > 0) or attachTestObj Is Nothing Then
+			output "Error: Attachment " & attachTestObj.Name & " has zero size or not found."
+		else
+			err.clear
+			testExtendStorage.Load attachTestObj.Name, true
+			if err.number <> 0 then
+				output err.description
+			end if
+		End if
+       	Next
+
+	'Get list of design steps from test
+	set desstepFact = myTest.DesignStepFactory
+	set desstepList = desstepFact.newlist("")
+	For each desStepObj in desstepList
+	        
+	        'Get list of attachments from dessign step
+	 	set attachDesStepFact = desStepObj.Attachments
+	 	set attachDesStepList = attachDesStepFact.newList("")
+	 	output "Design Step:" & desStepObj.ID & ", Attachment Count: " & attachDesStepList.count 
+	 	
+	 	'Download attachment for each step
+	 	For each attachDesStepObj in attachDesStepList
+	 		output "Downloading Attachment " & attachDesStepObj.Name & " for Design Step " & desStepObj.id & " to " & path & "."
+	 		
+	 		'Using Extended storage here so we can specify path to download file to
+	 		set desstepExtendStorage = attachDesStepObj.AttachmentStorage
+			desstepExtendStorage.ClientPath = path
+			If Not (attachDesStepObj.FileSize > 0) or attachDesStepObj Is Nothing Then
+				output "Error: Attachment " & attachDesStepObj.Name & " has zero size or not found."
+			else
+				err.clear
+				desstepExtendStorage.Load attachDesStepObj.Name, true
+				if err.number <> 0 then
+					output err.description
+				end if
+			End if
+	 	Next
+	Next
+
+	set mytestFactory = nothing
+	set testFilter = nothing
+	set testList = nothing
+	set myTest = nothing
+	set attachTestFact = nothing
+	set attachlst = nothing
+	set attachTestObj = nothing
+	set desstepList = nothing
+	set desStepObj = nothing
+	set desstepFact = nothing
+	set attachDesStepList = nothing
+	set attachDesStepObj = nothing
+	set attachDesStepFact = nothing
+	set testExtendStorage = nothing
+	set desstepExtendStorage = nothing
+End Sub
+
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// --- Main ---
+'///////////////////////////////////////////////////////////////////////////////////
+Sub Main
+On Error Resume next
+Dim args
+Dim tdConnection
+Dim QcURL
+Dim QcUser
+Dim QcPassword
+Dim QcDomain
+Dim QcProject
+
+
+
+Set args = WScript.Arguments
+QcURL = args.Item(0)
+QcUser = args.Item(1)
+QcPassword = args.Item(2)
+QcDomain = args.Item(3)
+QcProject = args.Item(4)
+path = args.Item(5)
+testid = args.Item(6)
+
+
+Set tdConnection = CreateObject("TDApiOle80.TDConnection.1")
+If tdConnection Is Nothing Then
+	Output "Could not create TD Connection object"
+Else
+	tdConnection.InitConnectionEx QcURL
+	AttachmentNameList = ""
+	If tdConnection.Connected = False Then
+		Output "Could not initialize QC connection"
+	Else
+		tdConnection.Login QCUser, QcPassword
+		If tdConnection.LoggedIn = False Then
+			Output "Could not log into QC"
+		Else
+			tdConnection.Connect QCDomain, QCProject
+
+			If tdConnection.ProjectConnected = False Then
+				Output "Invalid domain/project"
+			Else
+				Output "Connecting to project " & QcDomain & "." & QcProject
+				
+				getTestAttachments tdconnection,path,testid			    
+
+				tdConnection.DisconnectProject
+			End If
+			tdConnection.Logout
+		End If
+		tdConnection.ReleaseConnection
+		output "QC Disconnected."
+	End If
+End If	
+
+set tdConnection = nothing
+
+End Sub
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// --- Call Main ---
+'///////////////////////////////////////////////////////////////////////////////////
+call Main
+
