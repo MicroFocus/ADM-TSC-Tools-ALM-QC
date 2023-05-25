@@ -1,0 +1,165 @@
+'Script to addlistitem
+' arg 0: QC URL
+' arg 1: QC user
+' arg 2: QC password
+' arg 3: QC domain
+' arg 4: QC project
+' arg 5: pathoflistfile (ex. "c:\temp\mylist.txt")
+ 
+' call it like
+'c:/windows/syswow64\cscript AddListItems.vbs https://<almhost>/qcbin/ <user> <password> <domain> <project> <PathOfListfile>
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'Output to console---
+'///////////////////////////////////////////////////////////////////////////////////
+Public Sub Output (Content)
+	WScript.StdOut.WriteLine Content
+End Sub
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'Add item to list
+'///////////////////////////////////////////////////////////////////////////////////
+Private Sub addListItem(tdconnection, ListName, ListItem)
+On Error Resume Next
+Dim cust 'As Customization
+Dim custlists 'As CustomizationLists
+Dim custList 'as CustomizationList
+Dim listRoot 'as CustomizationListNode
+Dim newListItem
+
+Set cust = tdconnection.Customization
+cust.Load
+If Not cust.islocked Then
+    Set custlists = cust.Lists
+    If custlists.IsListExist(CStr(ListName)) Then
+        Set custList = custlists.List(CStr(ListName))
+        Set listRoot = custList.RootNode
+        Set newListItem = listRoot.AddChild(cstr(ListItem))
+        If Err.Number <> 0 Then
+                output Err.Description
+        Else
+                output  "Added item " & ListItem & " to list " & ListName & "."
+        End If
+        cust.Commit
+    Else
+     	output "Failed to add item to list. List " & ListName & " does not exist."
+    End If
+Else
+    output "Failed to customize list. Customization is locked."
+
+End If
+Set cust = Nothing
+Set custlists = Nothing
+Set custList = Nothing
+Set newListItem = Nothing
+End Sub
+
+
+ 
+ 
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'Main---
+'// ---'Connect to the Quality Center Server.
+
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// --- Main ---
+'///////////////////////////////////////////////////////////////////////////////////
+Sub Main
+On Error Resume next
+Dim args
+Dim tdConnection
+Dim QcURL
+Dim QcUser
+Dim QcPassword
+Dim QcDomain
+Dim QcProject
+Dim QcListOfItemsFile
+Dim fso
+Dim ListOfItemsFile
+Dim ListOfItemLine
+Dim ListOfItemArray
+Dim ListName
+dim ListItem
+
+
+Set args = WScript.Arguments
+QcURL = args.Item(0)
+QcUser = args.Item(1)
+QcPassword = args.Item(2)
+QcDomain = args.Item(3)
+QcProject = args.Item(4)
+QCListOfItemsFile = args.Item(5)
+
+output "ALM Server:" & QcURL
+output "Domain:" & QCDomain
+output "Projet:" & QcProject
+output "List File Path:" & QCListOfItemsFile
+
+Set tdConnection = CreateObject("TDApiOle80.TDConnection.1")
+If tdConnection Is Nothing Then
+	Output err.description
+Else
+	Output "Connecting to ALM server..."
+	tdConnection.InitConnectionEx QcURL
+	If tdConnection.Connected = False Then
+		Output err.description
+	Else
+		Output "Authenticating..."
+		tdConnection.Login QCUser, QcPassword
+		If tdConnection.LoggedIn = False Then
+			Output err.description
+		Else
+			Output "Connecting to project " & QcDomain & "." & QcProject
+			tdConnection.Connect QCDomain, QCProject
+
+			If tdConnection.ProjectConnected = False Then
+				Output  err.descrption
+			Else
+				set fso = CreateObject("Scripting.FileSystemObject")
+				Err.Clear
+				set ListOfItemsFile = fso.OpenTextFile(QCListOfItemsFile, 1)	
+
+
+				if Err.number <> 0 Then
+					Output "Failed to locate file " & QCListOfItemsFile & "." & Err.Description
+				else
+					Do While Not ListOfItemsFile.AtEndOfStream
+						ListOfItemLine = ListOfItemsFile.ReadLine
+						msgbox "line = " & ListOfItemLine
+						ListOfItemArray = split(ListOfItemLine,",")
+						Listname = ListOfItemArray(0)
+						ListItem = ListOfItemArray(1)
+						call addListItem(tdConnection,Listname,ListItem)
+					Loop	
+								
+					' Close the file
+					ListOfItemsFile.Close						
+				end if
+
+					
+			
+				tdConnection.DisconnectProject
+			End If
+			tdConnection.Logout
+		End If
+		tdConnection.ReleaseConnection
+		output "QC Disconnected."
+	End If
+End If	
+
+set tdConnection = nothing
+set fso = nothing
+set ListOfItemsFile = nothing
+
+End Sub
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// --- Call Main ---
+'///////////////////////////////////////////////////////////////////////////////////
+call Main
