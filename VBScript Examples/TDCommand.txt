@@ -1,0 +1,170 @@
+' TDCommand.vbs
+' retrieve bugs using TDCommand Object
+' arg 0: QC URL
+' arg 1: QC user
+' arg 2: QC password
+' arg 3: path
+
+ 
+' call it like
+' cscript TDCommand.vbs https://<almhost>/qcbin/ <user> <password> <path>
+'Example:
+'c:/windows\syswow64\cscript TDCommand.vbs https://almserver.saas.microfocus.com/qcbin user password c:\temp
+
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'Output to console---
+'///////////////////////////////////////////////////////////////////////////////////
+Public Sub Output (Content)
+	WScript.StdOut.WriteLine Content
+End Sub
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'Get bugs--
+'///////////////////////////////////////////////////////////////////////////////////
+Sub printBugs(tdc,path)
+
+       On Error Resume Next
+       Dim com 'As TDAPIOLELib.Command
+       Dim rec 'As TDAPIOLELib.Recordset
+       
+       Set com = tdc.Command
+       
+       
+       com.CommandText = "select * from bug"
+       Set recset = com.Execute
+       'Displaying the 2nd column data
+       For i = 1 To RecSet.RecordCount
+               M_out path, tdc.domainname & "." & tdc.projectname & "," & RecSet.FieldValue(0) & "," & RecSet.FieldValue(1)
+               RecSet.Next
+       Next
+
+
+       set com = nothing
+       set recset = nothing
+	
+End Sub
+
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'Write to log file---
+'///////////////////////////////////////////////////////////////////////////////////
+Sub M_out(path ,m1)
+	' NewTextEC.vbs
+	' Sample VBScript to write to a file. With added error-correcting
+	' Author Guy Thomas http://computerperformance.co.uk/
+	 ' VBScript Write File
+	' ---------------------------------------------' 
+
+	Dim objFSO, objFolder, objShell, objTextFile, objFile
+	Dim strDirectory, strFile, strText
+	strDirectory = path
+	strFile = "\Log.txt"
+	strText = m1
+
+	' Create the File System Object
+	Set objFSO = CreateObject("Scripting.FileSystemObject")
+
+	' Check that the strDirectory folder exists
+	If objFSO.FolderExists(strDirectory) Then
+	   Set objFolder = objFSO.GetFolder(strDirectory)
+	Else
+	   Set objFolder = objFSO.CreateFolder(strDirectory)
+	   WScript.Echo "Just created " & strDirectory
+	End If
+
+	If objFSO.FileExists(strDirectory & strFile) Then
+	   Set objFolder = objFSO.GetFolder(strDirectory)
+	Else
+	   Set objFile = objFSO.CreateTextFile(strDirectory & strFile)
+	   Wscript.Echo "Just created " & strDirectory & strFile
+	End If 
+
+	set objFile = nothing
+	set objFolder = nothing
+	' OpenTextFile Method needs a Const value
+	' ForAppending = 8 ForReading = 1, ForWriting = 2
+	Const ForAppending = 8
+
+	Set objTextFile = objFSO.OpenTextFile _
+	(strDirectory & strFile, ForAppending, True)
+
+	' Writes strText every time you run this VBScript
+	objTextFile.WriteLine(strText)
+	objTextFile.Close
+	' End of VBScript to write to a file with error-correcting Code
+End Sub
+
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// --- Main ---
+'///////////////////////////////////////////////////////////////////////////////////
+'On Error Resume Next
+Dim args
+Dim tdConnection
+Dim QcURL
+Dim QcUser
+Dim QcPassword
+Dim QcDomain
+Dim QcProject
+Dim i
+Dim path
+Dim domainItem
+Dim projn
+
+Set args = WScript.Arguments
+QcURL = args.Item(0)
+QcUser = args.Item(1)
+QcPassword = args.Item(2)
+path = args.Item(3)
+
+
+Set tdConnection = CreateObject("TDApiOle80.TDConnection.1")
+'Print columns
+m_out path,"DOMAIN,PROJECT,DEFECT ID,DEFECT STATUS"
+
+If tdConnection Is Nothing Then
+	Output "Could not create TD Connection object"
+Else
+	tdConnection.InitConnectionEx QcURL
+	AttachmentNameList = ""
+	If tdConnection.Connected = False Then
+		Output "Could not initialize QC connection"
+	Else
+		tdConnection.Login QCUser, QcPassword
+		
+		If tdConnection.LoggedIn = False Then
+			Output "Could not log into ALM."
+		Else
+			For Each domainItem In tdConnection.VisibleDomains
+			    For Each projn In tdConnection.VisibleProjects(domainItem)
+			        
+			        IF domainItem = "SAAS_INTERNAL" THEN
+				tdConnection.Connect domainItem, projn
+		
+				If tdConnection.ProjectConnected = False Then
+					Output "Invalid domain/project"
+				Else
+					Output "Connecting to project " & domainItem & "." & projn
+
+					'Print bugs
+					printBugs tdConnection, path
+				 	tdConnection.Disconnect
+				End If	
+				END IF
+			    Next
+  		         Next
+
+		End If
+		tdConnection.Logout
+		tdConnection.ReleaseConnection
+		output "ALM Disconnected."
+		output "Result is written to " & path & "/Log.txt"
+	End If
+End If	
+
+set tdConnection = nothing
