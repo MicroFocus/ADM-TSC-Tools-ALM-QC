@@ -1,0 +1,131 @@
+' DeleteRun.vbs
+' Delete runs
+' arg 0: QC URL
+' arg 1: QC user
+' arg 2: QC password
+' arg 3: QC domain
+' arg 4: QC project
+' arg 5: Run Age
+
+ 
+' call it like
+' cscript DeleteRun.vbs https://<almhost>/qcbin/ <user> <password> <domain> <project> <age>
+
+Public Sub Output (Content)
+	WScript.StdOut.WriteLine Content
+End Sub
+
+' --- Main ---
+'On Error Resume Next
+Dim args
+Dim tdc
+Dim QcURL
+Dim QcUser
+Dim QcPassword
+Dim QcDomain
+Dim QcProject
+Dim i
+Dim age
+
+Set args = WScript.Arguments
+QcURL = args.Item(0)
+QcUser = args.Item(1)
+QcPassword = args.Item(2)
+QcDomain = args.Item(3)
+QcProject = args.Item(4)
+age = args.Item(5)
+if age < 90 then
+   output "Deletion date must be greater or equal to 90 days."
+   wscript.quit
+end if
+age = 90 'days
+Set tdc = CreateObject("TDApiOle80.TDConnection.1")
+If tdc Is Nothing Then
+	Output "Could not create TD Connection object"
+Else
+	tdc.InitConnectionEx QcURL
+	If tdc.Connected = False Then
+		Output "Could not initialize QC connection"
+	Else
+		tdc.Login QCUser, QcPassword
+		If tdc.LoggedIn = False Then
+			Output "Could not log into QC"
+		Else
+			tdc.Connect QCDomain, QCProject
+
+			If tdc.ProjectConnected = False Then
+				Output "Invalid domain/project"
+			Else
+        			Output "Starting task..."
+				Output "Connecting to project " & QcDomain & "." & QcProject
+
+				Call DeleteRun(age)
+        			Output  "Done!"
+
+				tdc.DisconnectProject
+        		End If
+			tdc.Logout
+		End If
+		tdc.ReleaseConnection
+		output "QC Disconnected."
+	End If
+End If	
+
+'////////////////////////////////////////////////////////////////////////
+'Delete run older than specified number of days
+'////////////////////////////////////////////////////////////////////////
+Public Sub DeleteRun(age)
+  on error resume next
+    Dim RunFact 'As RunFactory
+    Dim runList 'as List
+    Dim rFilter 'as TDFilter
+    Dim filterDate 'as Date
+    Dim crun 'as run
+
+
+    'Get RunFactory
+    'tdc is the global TDConnection object.
+    Set RunFact = tdc.RunFactory
+    set rFilter = RunFact.Filter
+    
+    filterDate = DateAdd("d",-90, now) '90 days ago
+    output "Deleting runs older than " & FormatDateTime(filterDate, vbGeneralDate)
+   
+    err.clear
+    rFilter.Filter("RN_EXECUTION_DATE") = "< " & Chr(34) & FormatDateTime(filterDate, vbGeneralDate) & Chr(34)
+
+    rFilter.order("RN_RUN_ID") = 1
+    if err.number <> 0 then
+            output err.description
+            exit sub
+    end if
+    
+    'Get list of runs to delete
+    err.clear
+    set runlist = RunFact.NewList(rFilter.text) 
+    output "Delete Run Count: " & runlist.count
+    if err.number <> 0 then
+            output err.description
+            exit sub
+    end if
+    
+    
+    'Delete each run in the list
+    Dim i 
+    i = 0
+    For Each crun In runList
+        err.clear
+        i = i + 1
+        RunFact.removeItem(crun.id)
+        if err.number <> 0 then
+           output "Err on Run: " & crun.Name & ", ID: " & crun.ID & "." & err.description
+        else
+           output "Deleted Run: " & crun.Name & ", ID: " & crun.ID & " (" & i & " of " & runlist.count & ")."
+        end if
+
+    Next 
+    
+    output "Run deletion completed on " & CStr(Now) & "."
+    
+On error goto 0
+End Sub
