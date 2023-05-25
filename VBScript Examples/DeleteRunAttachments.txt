@@ -1,0 +1,149 @@
+' DeleteRunAttachments.vbs
+' Delete run attachments
+' arg 0: QC URL
+' arg 1: QC user
+' arg 2: QC password
+' arg 3: QC domain
+' arg 4: QC project
+' arg 5: Attachment Age
+
+ 
+' call it like
+' c:/windows\syswow64\cscript DeleteRunAttachments.vbs https://<almhost>/qcbin/ <user> <password> <domain> <project> <age>
+
+Public Sub Output (Content)
+	WScript.StdOut.WriteLine Content
+End Sub
+
+' --- Main ---
+'On Error Resume Next
+Dim args
+Dim tdc
+Dim QcURL
+Dim QcUser
+Dim QcPassword
+Dim QcDomain
+Dim QcProject
+Dim i
+Dim age
+
+Set args = WScript.Arguments
+QcURL = args.Item(0)
+QcUser = args.Item(1)
+QcPassword = args.Item(2)
+QcDomain = args.Item(3)
+QcProject = args.Item(4)
+age = args.Item(5)
+if age < 90 then
+   output "Deletion date must be greater or equal to 90 days."
+   wscript.quit
+end if
+age = 90 'days
+Set tdc = CreateObject("TDApiOle80.TDConnection.1")
+If tdc Is Nothing Then
+	Output "Could not create TD Connection object"
+Else
+	tdc.InitConnectionEx QcURL
+	If tdc.Connected = False Then
+		Output "Could not initialize QC connection"
+	Else
+		tdc.Login QCUser, QcPassword
+		If tdc.LoggedIn = False Then
+			Output "Could not log into QC"
+		Else
+			tdc.Connect QCDomain, QCProject
+
+			If tdc.ProjectConnected = False Then
+				Output "Invalid domain/project"
+			Else
+        			Output "Starting task..."
+				Output "Connecting to project " & QcDomain & "." & QcProject
+
+				Call DeleteRunAttachments(tdc,age)
+        			Output  "Done!"
+
+				tdc.DisconnectProject
+        		End If
+			tdc.Logout
+		End If
+		tdc.ReleaseConnection
+		output "QC Disconnected."
+	End If
+End If	
+
+
+
+'////////////////////////////////////////////////////////////////////////
+'Delete zip attachments from run older than specified number of days
+'////////////////////////////////////////////////////////////////////////
+Public Sub DeleteRunAttachments(tdc, age)
+  on error resume next
+    Dim RunFact 'As RunFactory
+    Dim runList 'as List
+    Dim rFilter 'as TDFilter
+    Dim filterDate 'as Date
+    Dim crun 'as run
+
+
+    'Get RunFactory
+    'tdc is the global TDConnection object.
+    err.clear
+    Set RunFact = tdc.RunFactory
+    if err.number <> 0 then
+        output "Run Factory Failed. " & err.description
+        exit sub
+    end if
+    
+    set rFilter = RunFact.Filter
+    filterDate = DateAdd("d",-90, now) '90 days ago
+    output "Deleting zip attachments from runs older than " & age & " days."
+   
+    err.clear
+    rFilter.Filter("RN_EXECUTION_DATE") = "< " & Chr(34) & FormatDateTime(filterDate, vbGeneralDate) & Chr(34)
+    rFilter.order("RN_RUN_ID") = 1
+    
+    'Get list of runs to delete attachments
+    err.clear
+    set runlist = RunFact.NewList(rFilter.text) 
+    
+    output "Run Count: " & runlist.count
+    
+    if err.number <> 0 then
+            output "Run Filter Failed. " & err.description
+            exit sub
+    end if
+    
+    
+    'Delete attachments from each run in the list
+    Dim i 
+    i = 0
+    For Each crun In runList
+	i = i + 1
+	Dim RunAttachFact
+	Dim AttachFilter
+	Dim attachList
+	Dim rAttach
+	
+	output "Deleting attachments from Run:" & i 
+	
+        set RunAttachFact = crun.Attachments
+        set AttachFilter = RunAttachFact.Filter
+        AttachFilter.Filter("CR_REFERENCE") = "*.zip"
+        set attachList  = RunAttachFact.NewList(AttachFilter.Text)
+        output "Attachment Count: " & attachList.count
+        for each rAttach in attachList
+        	err.clear
+        	RunAttachFact.removeItem(rAttach.id)
+        	if err.number <> 0 then
+		      output "Error on : " & crun.Name & ", ID: " & crun.ID & "." & err.description
+		else
+		      output "Deleted Attachments from Run: " & crun.Name & ", ID: " & crun.ID & ", File Name:" & rAttach.Name & "."
+        	end if
+        next	
+
+    Next 
+    
+    output "Attachments from Runs completed on " & CStr(Now) & "."
+    
+On error goto 0
+End Sub
