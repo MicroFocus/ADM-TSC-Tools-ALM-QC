@@ -1,0 +1,166 @@
+'Script to update test instances with full name in TC_USER_01
+' arg 0: URL
+' arg 1: apikey
+' arg 2: apisecret
+' arg 3: domain
+' arg 4: project
+' arg 5: udf
+ 
+' call it like
+'c:/windows/syswow64\cscript UpdateTestInstanceFullName.vbs https://<almhost>/qcbin/ <apikey> <apisecret> <domain> <project> <udf> 
+
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'Get user full name ---
+'///////////////////////////////////////////////////////////////////////////////////
+Function Project_GetFullname(tdc,username)
+  Dim FullName
+  FullName = username
+  If len(trim(username)) = 0 then
+    Project_GetFullname = username
+  End if
+
+  Dim  vUser, vUsers, vCust, uList
+
+  set vcust = tdc.customization
+  set vusers = vcust.users
+  set ulist = vusers.users
+
+  for i=1 to ulist.count
+    set vuser = uList.item(i)
+    if vuser.name = username then
+       FullName = vuser.fullname
+       exit for
+    End if
+  Next
+  Project_GetFullname = FullName
+  Set vcust = nothing
+  Set vusers = nothing
+  Set uList = nothing
+End Function
+
+ 
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'UpdateTestSet---
+'// ---'Update test instances in Testset with Full Name in TC_USER_01
+'////////////////////////////////////////////////////////////////////////////////////
+Sub UpdateTestInstances(tdConnection, udf)
+on error resume next
+Dim TSTestFact
+Dim TSTestList
+Dim theTSTest 
+Dim FullName
+
+'Get the Test Set factory
+Set TSTestFact = tdConnection.TSTestFactory
+set TSTestList = TSTestFact.NewList("")
+
+For Each theTSTest In TSTestList
+    WScript.Echo  "Found test instance id: " & theTSTest.id & "," & theTSTest.Field("TC_TESTER_NAME")
+    if theTSTest.Field("TC_TESTER_NAME") <> "" then
+	
+		FullName = Project_GetFullname(tdConnection,theTSTest.Field("TC_TESTER_NAME"))
+		'wscript.echo FullName
+		if FullName <> theTSTest.Field(udf) then
+		    
+		    WScript.Echo  "Updated test instance id: " & theTSTest.id
+			err.clear
+			theTSTest.Field(udf) = FullName
+			if err.number <> 0 then
+				wscript.echo err.description
+			end if
+			theTSTest.Post
+		end if 
+	end if
+
+Next
+
+
+Set TestSetFact = nothing
+Set TSTestList = nothing
+Set theTSTest = nothing
+
+End Sub
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// --- Main ---
+'///////////////////////////////////////////////////////////////////////////////////
+Sub Main
+On Error Resume Next
+Dim args
+Dim tdConnection
+Dim QcURL
+Dim QcApiKey
+Dim QcApiSecret
+Dim QcDomain
+Dim QcProject
+Dim udf
+
+Dim i
+
+Set args = WScript.Arguments
+QcURL = args.Item(0)
+QcApiKey = args.Item(1)
+QcApiSecret = args.Item(2)
+QcDomain = args.Item(3)
+QcProject = args.Item(4)
+udf = args.Item(5)
+
+filename = "\DefectReport_" & getTimeStamp & ".csv"
+
+wScript.Echo "Server: <" & qcURL & ">"
+wScript.Echo "Domaina: <" & QcDomain  & ">"
+wScript.Echo "Server: <" & QcProject  & ">"
+
+Set tdConnection = CreateObject("tdapiole80.tdconnection")
+If tdConnection Is Nothing Then
+	WScript.Echo "Could not create TD Connection object"
+Else
+	err.clear
+	tdConnection.InitConnectionWithApiKeyEx QcURL,QcApiKey,QcApiSecret
+	if err.number <> 0 then 
+		wScript.Echo err.description
+		exit sub
+	end if
+	If tdConnection.Connected = False Then
+		WScript.Echo "Could not initialize QC connection. " & err. description
+		exit sub
+	Else
+		err.clear
+		If tdConnection.LoggedIn = False Then
+			WScript.Echo "Could not log into QC. "  & err.description
+			exit sub
+		Else
+			err.clear
+			tdConnection.Connect QCDomain, QCProject
+
+			If tdConnection.ProjectConnected = False Then
+				wscript.echo err.description
+			Else
+				wscript.echo "Connecting to project " & QcDomain & "." & QcProject
+
+				' Update test instances 
+				call UpdateTestInstances(tdConnection, udf)
+				 tdConnection.DisconnectProject
+			End If
+			tdConnection.Logout
+		End If
+		tdConnection.ReleaseConnection
+		WScript.Echo "QC Disconnected."
+	End If
+End If	
+
+set tdConnection = nothing
+
+
+End sub
+
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// --- Call Main ---
+'///////////////////////////////////////////////////////////////////////////////////
+call Main
