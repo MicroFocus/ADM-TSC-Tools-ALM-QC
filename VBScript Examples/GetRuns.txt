@@ -1,0 +1,325 @@
+' GetRuns.vbs 
+' retrieve runs of a given QC project using OTA
+' arg 0: QC URL
+' arg 1: QC user
+' arg 2: QC password
+' arg 3: QC domain
+' arg 4: QC project
+' arg 5: path
+ 
+' call it like
+'c:\windows\syswow64\cscript GetRuns.vbs https://<almhost>/qcbin/ <user> <password> <domain> <project> <path>
+
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'Write to log file---
+'///////////////////////////////////////////////////////////////////////////////////
+Sub M_out(path ,filename,method, m1)
+	' Sample VBScript to write to a file. With added error-correcting
+	' Author Guy Thomas http://computerperformance.co.uk/
+	 ' VBScript Write File
+	' ---------------------------------------------' 
+
+	Dim objFSO, objFolder, objShell, objTextFile, objFile
+	Dim strDirectory, strFile, strText
+	strDirectory = path
+	strFile = filename
+	strText = m1
+
+	' Create the File System Object
+	Set objFSO = CreateObject("Scripting.FileSystemObject")
+
+	' Check that the strDirectory folder exists
+	If objFSO.FolderExists(strDirectory) Then
+	   Set objFolder = objFSO.GetFolder(strDirectory)
+	Else
+	   Set objFolder = objFSO.CreateFolder(strDirectory)
+	   WScript.Echo "Just created " & strDirectory
+	End If
+
+	If objFSO.FileExists(strDirectory & strFile) Then
+	   Set objFolder = objFSO.GetFolder(strDirectory)
+	Else
+	   Set objFile = objFSO.CreateTextFile(strDirectory & strFile)
+	   objFile.close
+	   Wscript.Echo "Just created " & strDirectory & strFile
+	End If 
+
+	set objFile = nothing
+	set objFolder = nothing
+	' OpenTextFile Method needs a Const value
+	' ForAppending = 8 ForReading = 1, ForWriting = 2
+	Const ForAppending = 8
+
+	Set objTextFile = objFSO.OpenTextFile (strDirectory & strFile, method, True)
+
+	' Writes strText every time you this VBScript
+	objTextFile.WriteLine(strText)
+	objTextFile.Close
+	' End of VBScript to write to a file with error-correcting Code
+End Sub
+
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'Get last run timestamp---
+'///////////////////////////////////////////////////////////////////////////////////
+Function GetLastRunTimeStamp(path)
+	on error resume next
+	Dim objFSO
+	Dim objFileToRead
+	Dim strLine
+	Dim lastRunTime
+	Dim tempvalue
+	
+	lastRunTime = "01/01/1970 00:00:00 AM"
+	
+	' Create the File System Object
+	Set objFSO = CreateObject("Scripting.FileSystemObject")
+	
+	If objFSO.FileExists(path & "\LastRun.txt") Then
+	   
+	    if objFSO.GetFile(path & "\LastRun.txt").size > 0 then
+	    	
+	        Set objFileToRead = objFSO.OpenTextFile(path & "\LastRun.txt",1)
+	        tempvalue = objFileToRead.ReadLine()
+	    	if isdate(tempvalue) then
+	      		lastRunTime = tempvalue
+	      		WScript.Echo "Last Script execution date is " & lastRunTime
+	      	else
+	      		WScript.Echo "Last Script execution date is invalid."
+	      		lastRunTime = "-1"
+	      	end if
+	      	objFileToRead.Close
+	      	
+	     else
+	     	WScript.Echo "LastRun.txt file is empty. Using timestamp " & lastRunTime
+	     end if
+	else
+	    WScript.Echo "LastRun.txt file does not exist. Using timestamp " & lastRunTime
+  	End If 
+	
+	GetLastRunTimeStamp = lastRunTime
+	set objFSO = nothing
+	Set objFileToRead = Nothing
+End Function
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'Get user full name ---
+'///////////////////////////////////////////////////////////////////////////////////
+Function Project_GetFullname(tdc,username)
+  If len(trim(username)) = 0 then
+    Project_GetFullname = username
+  End if
+
+  Dim  vUser, vUsers, vCust, uList
+
+  set vcust = tdc.customization
+  set vusers = vcust.users
+  set ulist = vusers.users
+
+  for i=1 to ulist.count
+    set vuser = uList.item(i)
+    if vuser.name = username then
+       Project_GetFullname = vuser.fullname
+       exit for
+    End if
+  Next
+
+  Set vcust = nothing
+  Set vusers = nothing
+  Set uList = nothing
+End Function
+
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'Timestamp for log
+'// 
+'///////////////////////////////////////////////////////////////////////////////////
+Function LZ(ByVal Number)
+  If Number < 10 Then
+    LZ = "0" & CStr(Number)
+  Else
+    LZ = CStr(Number)
+  End If
+End Function
+
+Function getTimeStamp
+  Dim CurrTime
+  CurrTime = Now()
+
+  getTimeStamp = CStr(Year(CurrTime)) & "-" _
+    & LZ(Month(CurrTime)) & "-" _
+    & LZ(Day(CurrTime)) & " " _
+    & LZ(Hour(CurrTime)) & "_" _
+    & LZ(Minute(CurrTime)) & "_" _
+    & LZ(Second(CurrTime))
+End Function
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---Main
+'// 
+'///////////////////////////////////////////////////////////////////////////////////
+Sub Main
+On Error Resume Next
+Dim args
+Dim tdConnection
+Dim QcURL
+Dim QcUser
+Dim QcPassword
+Dim QcDomain
+Dim QcProject
+Dim path
+Dim filename
+Dim runFact 
+Dim runList
+Dim runObj 
+Dim runFilter
+Dim i
+Dim lastRunTimestamp
+Dim timestamparray
+Dim lastExecutionDate
+Dim lastexecutionTime
+
+'Fields to export
+Dim rTestID
+Dim rRunID
+Dim rExecutionDate
+Dim rExecutionTime
+Dim rHost
+Dim rStatus
+Dim rDuration
+Dim rDraft
+Dim rTesterName
+Dim rOSName
+
+
+Set args = WScript.Arguments
+QcURL = args.Item(0)
+QcUser = args.Item(1)
+QcPassword = args.Item(2)
+QcDomain = args.Item(3)
+QcProject = args.Item(4)
+Path = args.Item(5)
+filename = "\RunReport.csv"
+
+lastRunTimestamp = GetLastRunTimeStamp(path)
+if lastRunTimestamp = "-1" or lastRunTimestamp = "" then
+   exit sub
+end if
+
+timestamparray = split(lastRunTimeStamp," ")
+lastExecutionDate = timestamparray(0)
+lastExecutionTime = timestamparray(1) & " " & timestamparray(2) 
+
+
+
+Set tdConnection = CreateObject("TDApiOle80.TDConnection.1")
+If tdConnection Is Nothing Then
+	WScript.Echo "Could not create TD Connection object"
+Else
+	err.clear
+	tdConnection.InitConnectionEx QcURL
+	If tdConnection.Connected = False Then
+		WScript.Echo "Failed to initialize ALM connection. " & err. description
+		exit sub
+	Else
+		err.clear
+		tdConnection.Login QCUser, QcPassword
+		if err.number <> 0 then
+			WScript.Echo "Failed to authenticate. " & err.description
+			exit sub
+		end if
+		err.clear
+		If tdConnection.LoggedIn = False Then
+			WScript.Echo "Failed to log into ALM. " & err.description
+			exit sub
+		Else
+			err.clear
+			tdConnection.Connect QCDomain, QCProject
+
+			If tdConnection.ProjectConnected = False Then
+				wscript.echo err.description
+			Else
+				wscript.echo "Connecting to project " & QcDomain & "." & QcProject
+
+				'Add header to csv file
+				M_out path, filename, 2, _
+					"Test ID" & vbtab & _
+					"Run ID" & vbtab & _
+					"Execution Date" & vbtab & _
+					"Execution Time"  & vbtab & _
+					"Host"  & vbtab & _
+					"Status" & vbtab & _
+					"Duration" & vbtab & _
+					"Draft" & vbtab & _
+					"Tester Name"  & vbtab & _
+					"OS Name"  
+				
+				set runFact = tdConnection.runFactory
+				
+				set runFilter = runFact.Filter
+				
+				runFilter.Filter("RN_EXECUTION_DATE")= ">= " & lastExecutionDate
+				Set runList = runFilter.NewList
+				
+				WScript.Echo "Generating report... " 		
+				
+				'loop through each run and print out to csv file
+				
+				i = 0
+				For each runobj in runList
+				    	
+				    if datediff("s",lastRunTimestamp,runobj.Field("RN_EXECUTION_DATE") &  " " & runobj.Field("RN_EXECUTION_TIME")) > 0  then
+					    rTestID = runobj.Field("RN_TEST_ID")
+					    rRunID = runobj.Field("RN_RUN_ID")
+					    rExecutionDate = runobj.Field("RN_EXECUTION_DATE")
+					    rExecutionTime = runobj.Field("RN_EXECUTION_TIME")
+					    rHost = runobj.Field("RN_HOST")
+					    rStatus = runobj.Field("RN_STATUS")
+					    rDuration = runobj.Field("RN_DURATION")
+					    rDraft = runobj.Field("RN_DRAFT")
+					    rTesterName = Project_GetFullname(tdConnection,runobj.Field("RN_TESTER_NAME"))
+					    rOSName = runobj.Field("RN_OS_NAME")
+
+
+					    M_out path, filename, 8,  _
+						 rTestID & vbtab & _
+						 rRunID & vbtab & _
+						 rExecutionDate & vbtab & _
+						 rExecutionTime & vbtab & _
+						 rHost & vbtab & _
+						 rStatus & vbtab & _
+						 rDuration & vbtab & _
+						 rDraft & vbtab & _
+						 rTesterName & vbtab & _
+						 rOSName 
+
+					i = i + 1
+				  end if
+				  
+				next
+				WScript.Echo "Run(s) created after last script execution (" &  lastRunTimestamp & ") :  " & i 
+				M_out path, "\LastRun.txt" ,2, tdconnection.servertime
+				
+				tdConnection.DisconnectProject
+			End If
+			tdConnection.Logout
+		End If
+		tdConnection.ReleaseConnection
+		WScript.Echo "QC Disconnected."
+	End If
+End If	
+
+set tdConnection = nothing
+set runFact = nothing
+set runList = nothing
+set runObj = nothing
+
+End sub
+
+call Main
