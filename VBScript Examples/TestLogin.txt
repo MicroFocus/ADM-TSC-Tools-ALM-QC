@@ -1,0 +1,98 @@
+'TestLogin usage:
+' arg 0: QC URL
+' arg 1: QC user
+' arg 2: QC password
+' arg 3: QC domain
+' arg 4: QC project
+
+ 
+' call it like
+' cscript TestLogin.vbs https://<almhost>/qcbin/ <apikey> <secret> <domain> <project> 
+'Example:
+'c:\windows\syswow64\cscript TestLogin.vbs https://serverurl/qcbin apikey secret domain project 
+
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'Output to console---
+'///////////////////////////////////////////////////////////////////////////////////
+Public Sub Output (Content)
+	WScript.StdOut.WriteLine Content
+End Sub
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// --- Main ---
+'///////////////////////////////////////////////////////////////////////////////////
+Sub Main
+On Error Resume next
+Dim args
+Dim tdConnection
+Dim QcURL
+Dim QcApiKey
+Dim QcApiSecret
+Dim QcDomain
+Dim QcProject
+
+
+
+Set args = WScript.Arguments
+QcURL = args.Item(0)
+QcApiKey = args.Item(1)
+QcApiSecret = args.Item(2)
+QcDomain = args.Item(3)
+QcProject = args.Item(4)
+path = args.Item(5)
+subjectpath = args.Item(6)
+
+Output "Server: <" & qcURL & ">"
+Output "Domaina: <" & QcDomain  & ">"
+Output "Server: <" & QcProject  & ">"
+
+Set tdConnection = CreateObject("TDApiOle80.TDConnection.1")
+If tdConnection Is Nothing Then
+	Output "Could not create TD Connection object"
+Else
+	err.clear
+	tdConnection.InitConnectionWithApiKeyEx QcURL,QcApiKey,QcApiSecret
+	if err.number <> 0 then 
+		Output err.description
+		exit sub
+	end if
+	err.clear
+	If tdConnection.Connected = False Then
+		Output "Could not initialize QC connection. " & err.description
+		exit sub
+	Else
+		err.celar
+		tdConnection.Connect QCDomain, QCProject
+		If tdConnection.LoggedIn = False Then
+			Output "Could not log into QC. " & err.description
+		Else
+			Output "Connecting to project " & QcDomain & "." & QcProject
+
+			If tdConnection.ProjectConnected = False Then
+				Output "Invalid domain/project." & err.description
+			Else
+				
+				'do nothing			    
+				tdConnection.DisconnectProject
+				Output "Connection Successful."
+			End If
+			tdConnection.Logout
+		End If
+		tdConnection.ReleaseConnection
+		output "QC Disconnected."
+	End If
+End If	
+
+set tdConnection = nothing
+
+End Sub
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// --- Call Main ---
+'///////////////////////////////////////////////////////////////////////////////////
+call Main
+
