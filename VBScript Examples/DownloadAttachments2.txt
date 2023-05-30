@@ -44,7 +44,7 @@ Sub getAttachments(tdc,path,bugid)
        SavePath = path
 
 
-       'Get BugFactory and Filter with defect id
+       'Get BugFactoryÂ and Filter with defect id
         Set mybugFactory = tdc.BugFactory
         Set rFilter = myBugFactory.Filter
         rFilter.Filter("BG_BUG_ID") = bugid
