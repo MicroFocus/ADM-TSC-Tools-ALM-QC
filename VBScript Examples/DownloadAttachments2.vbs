@@ -1,0 +1,236 @@
+' DownloadAttachments.vbs
+' retrieve bugs and attachments of a given QC project
+' arg 0: QC URL
+' arg 1: QC user
+' arg 2: QC password
+' arg 3: QC domain
+' arg 4: QC project
+' arg 5: path
+' arg 6: start id
+' arg 7: end id
+ 
+' call it like
+' cscript DownloadAttachments.vbs https://<almhost>/qcbin/ <user> <password> <domain> <project> <path> <startid> <endid>
+'Example:
+'c:/windows\syswow64\cscript DownloadAttachments.vbs https://serverurl/qcbin user password domain project c:\temp\AttachmentBug 1 100
+
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'Output to console---
+'///////////////////////////////////////////////////////////////////////////////////
+Public Sub Output (Content)
+	WScript.StdOut.WriteLine Content
+End Sub
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'Download attachments---
+'///////////////////////////////////////////////////////////////////////////////////
+Sub getAttachments(tdc,path,bugid)
+
+       Dim Attach_DownCount
+       Dim ExStrg 	'As IExtendedStorage
+       Dim rFilter 	'As TDFilter
+       Dim reqList 	'As List
+       Dim DownLoad_bug	'Req As bug
+       Dim attachFact 	'As AttachmentFactory
+       Dim lst 		'As List
+       Dim attachObj 	'As Attachment
+       Dim SavePath 	'As String
+       Dim mybugFactory 'As BugFactory
+       Dim attachmentName
+       
+       SavePath = path
+
+
+       'Get BugFactory and Filter with defect id
+        Set mybugFactory = tdc.BugFactory
+        Set rFilter = myBugFactory.Filter
+        rFilter.Filter("BG_BUG_ID") = bugid
+
+        Set bugList = mybugFactory.NewList(rFilter.Text)
+
+        Attach_DownCount = 0
+
+        'Get Attachments in Requirements module
+        set DownLoad_bug = buglist.item(1)
+        Set attachFact = DownLoad_bug.Attachments
+	Set lst = attachFact.NewList("")
+        output "Bug ID:" & bugid & ", Attachment Count: " & lst.count 
+
+	    'Download Attachments
+	    For Each attachObj In lst
+		'Get AttachmentStorage
+		Set ExStrg = attachObj.AttachmentStorage
+
+		'Specify location to save
+		ExStrg.ClientPath = SavePath
+
+		'Start download
+		attachmentName = attachObj.Name
+
+		If Not (attachObj.FileSize > 0) or attachObj Is Nothing Then
+		        output "Error: Attachment " & attachmentName & " has zero size or not found"
+		        m_out path, """" & cstr(bugObj.ID) & """,""" & bugObj.Field("BG_STATUS") & ""","""  & bugObj.Field("BG_SUMMARY") & """,""" &  attachmentName & """,""Download Failed"""
+		else
+		   ExStrg.Load attachmentName , True
+
+		    Dim total 'As Long
+		    Dim current 'As Long
+		    Dim ret 'As Long
+		    total = 0
+		    current = 0
+		    ret = 0
+
+		    ProgUpdate = False
+		    output "Downloading " & attachObj.Name & " to " & savepath
+
+		    'Display progress
+		    Do While ret = 0
+			ExStrg.Progress clng(total), clng(current)
+			ret = ExStrg.ActionFinished
+			output "Total : " & cstr(ret) & ", Current:" & CStr(current/1024)
+			WScript.Sleep 1000 'Sleeps for 1 seconds
+		    Loop
+		    m_out path, cstr(bugObj.ID) & "," & bugObj.Field("BG_STATUS") & ","  & bugObj.Field("BG_SUMMARY") & "," &  attachmentName 
+		End If
+
+
+	    Next
+
+	set attachFact = nothing
+	set lst = nothing
+	set exStrg = nothing
+	set DownLoad_bug = nothing
+	
+	
+End Sub
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'Write to log file---
+'///////////////////////////////////////////////////////////////////////////////////
+Sub M_out(path ,m1)
+	' NewTextEC.vbs
+	' Sample VBScript to write to a file. With added error-correcting
+	' Author Guy Thomas http://computerperformance.co.uk/
+	 ' VBScript Write File
+	' ---------------------------------------------' 
+
+	Dim objFSO, objFolder, objShell, objTextFile, objFile
+	Dim strDirectory, strFile, strText
+	strDirectory = path
+	strFile = "\AttachmentBug.csv"
+	strText = m1
+
+	' Create the File System Object
+	Set objFSO = CreateObject("Scripting.FileSystemObject")
+
+	' Check that the strDirectory folder exists
+	If objFSO.FolderExists(strDirectory) Then
+	   Set objFolder = objFSO.GetFolder(strDirectory)
+	Else
+	   Set objFolder = objFSO.CreateFolder(strDirectory)
+	   WScript.Echo "Just created " & strDirectory
+	End If
+
+	If objFSO.FileExists(strDirectory & strFile) Then
+	   Set objFolder = objFSO.GetFolder(strDirectory)
+	Else
+	   Set objFile = objFSO.CreateTextFile(strDirectory & strFile)
+	   Wscript.Echo "Just created " & strDirectory & strFile
+	End If 
+
+	set objFile = nothing
+	set objFolder = nothing
+	' OpenTextFile Method needs a Const value
+	' ForAppending = 8 ForReading = 1, ForWriting = 2
+	Const ForAppending = 8
+
+	Set objTextFile = objFSO.OpenTextFile _
+	(strDirectory & strFile, ForAppending, True)
+
+	' Writes strText every time you run this VBScript
+	objTextFile.WriteLine(strText)
+	objTextFile.Close
+	' End of VBScript to write to a file with error-correcting Code
+End Sub
+
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// --- Main ---
+'///////////////////////////////////////////////////////////////////////////////////
+'On Error Resume Next
+Dim args
+Dim tdConnection
+Dim QcURL
+Dim QcUser
+Dim QcPassword
+Dim QcDomain
+Dim QcProject
+Dim BugFact 
+Dim BugList
+Dim bugObj 
+Dim i
+Dim startid
+Dim endid
+Dim path
+Dim AttachmentNameList
+
+Set args = WScript.Arguments
+QcURL = args.Item(0)
+QcUser = args.Item(1)
+QcPassword = args.Item(2)
+QcDomain = args.Item(3)
+QcProject = args.Item(4)
+path = args.Item(5)
+startid = args.Item(6)
+endid = args.Item(7)
+
+Set tdConnection = CreateObject("TDApiOle80.TDConnection.1")
+If tdConnection Is Nothing Then
+	Output "Could not create TD Connection object"
+Else
+	tdConnection.InitConnectionEx QcURL
+	AttachmentNameList = ""
+	If tdConnection.Connected = False Then
+		Output "Could not initialize QC connection"
+	Else
+		tdConnection.Login QCUser, QcPassword
+		If tdConnection.LoggedIn = False Then
+			Output "Could not log into QC"
+		Else
+			tdConnection.Connect QCDomain, QCProject
+
+			If tdConnection.ProjectConnected = False Then
+				Output "Invalid domain/project"
+			Else
+				Output "Connecting to project " & QcDomain & "." & QcProject
+
+				' Get the bug factory from the tdConnection.
+				set BugFact = tdConnection.BugFactory
+				Set bFilter = BugFact.Filter
+				bFilter.Filter("BG_BUG_ID") = ">= " & startid & " and <= " & endid
+				Set BugList = BugFact.NewList(bFilter.text)
+				m_out path, "Bug ID,Status,Summary,Attachment Name"
+				For Each bugObj In BugList
+				    'output bugobj.id
+				    getAttachments tdconnection,path,bugobj.id			    
+				Next
+
+				 tdConnection.DisconnectProject
+			End If
+			tdConnection.Logout
+		End If
+		tdConnection.ReleaseConnection
+		output "QC Disconnected."
+	End If
+End If	
+
+set tdConnection = nothing
+set BugFact = nothing
+set BugList = nothing
+set bugObj = nothing
+set bFilter = nothing
