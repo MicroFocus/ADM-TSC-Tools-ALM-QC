@@ -249,15 +249,15 @@ Else
 
 				'Add header to csv file
 				M_out path, filename, 2, _
-					"Test ID" & vbtab & _
-					"Run ID" & vbtab & _
-					"Execution Date" & vbtab & _
-					"Execution Time"  & vbtab & _
-					"Host"  & vbtab & _
-					"Status" & vbtab & _
-					"Duration" & vbtab & _
-					"Draft" & vbtab & _
-					"Tester Name"  & vbtab & _
+					"Test ID" & "," & _
+					"Run ID" & "," & _
+					"Execution Date" & "," & _
+					"Execution Time"  & "," & _
+					"Host"  & "," & _
+					"Status" & "," & _
+					"Duration" & "," & _
+					"Draft" & "," & _
+					"Tester Name"  & "," & _
 					"OS Name"  
 				
 				set runFact = tdConnection.runFactory
