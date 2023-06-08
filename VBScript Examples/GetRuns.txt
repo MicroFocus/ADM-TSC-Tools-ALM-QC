@@ -288,15 +288,15 @@ Else
 
 
 					    M_out path, filename, 8,  _
-						 rTestID & vbtab & _
-						 rRunID & vbtab & _
-						 rExecutionDate & vbtab & _
-						 rExecutionTime & vbtab & _
-						 rHost & vbtab & _
-						 rStatus & vbtab & _
-						 rDuration & vbtab & _
-						 rDraft & vbtab & _
-						 rTesterName & vbtab & _
+						 rTestID & "," & _
+						 rRunID & "," & _
+						 rExecutionDate & "," & _
+						 rExecutionTime & "," & _
+						 rHost & "," & _
+						 rStatus & "," & _
+						 rDuration & "," & _
+						 rDraft & "," & _
+						 rTesterName & "," & _
 						 rOSName 
 
 					i = i + 1
