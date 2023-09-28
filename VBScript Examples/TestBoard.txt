@@ -1,0 +1,301 @@
+' TestBoard.vbs 
+' retrieve test instances under a folder
+' arg 0: QC URL
+' arg 1: QC user
+' arg 2: QC password
+' arg 3: QC domain
+' arg 4: QC project
+' arg 5: path
+ 
+' call it like
+'c:\windows\syswow64\cscript TestBoard.vbs https://<almhost>/qcbin/ <user> <password> <domain> <project> <folderpath> <path>
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'Global Variables ---
+'///////////////////////////////////////////////////////////////////////////////////
+Dim recordCount
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'Output to console---
+'///////////////////////////////////////////////////////////////////////////////////
+Public Sub Output (Content)
+	WScript.StdOut.WriteLine Content
+End Sub
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'Add header to excel sheet---
+'///////////////////////////////////////////////////////////////////////////////////
+Sub AddHeader(Sheet)
+ 
+        Sheet.Cells(1, 1).Value = "Test Instance ID" 
+        Sheet.Cells(1, 2).Value = "Name" '
+        Sheet.Cells(1, 3).Value = "Test: Test Name"
+        Sheet.Cells(1, 4).Value = "Test Set: Name"
+        Sheet.Cells(1, 5).Value = "Planned Host Name"
+        Sheet.Cells(1, 6).Value = "Responsible Tester"
+        Sheet.Cells(1, 7).Value = "Exec Date"
+        Sheet.Cells(1, 8).Value = "Time"
+        Sheet.Cells(1, 9).Value = "Planned Exec Date"
+        Sheet.Cells(1, 10).Value = "Planned Exec Time"
+ 
+End Sub
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'Get test instances under testset folder ---
+'///////////////////////////////////////////////////////////////////////////////////
+Private Sub GetTestData(tdconn, Sheet, folderpath)
+On Error Resume Next
+        Dim TreeMgr
+        Dim selectednode
+        Dim levelOneNodeList
+        Set TreeMgr = tdconn.TestSetTreeManager
+        Set selectednode = TreeMgr.NodeByPath(folderpath)
+		if err.number <> 0 then
+			Output "GetTestData: " & Err.Description
+		end if
+        recordCount = 2
+        
+        Call AddHeader(Sheet)
+        
+        Call TraverseTestSetTree(selectednode, Sheet)
+        
+        Set TreeMgr = Nothing
+        Set selectednode = Nothing
+    
+On Error Goto 0
+End Sub
+
+Sub TraverseTestSetTree(selectednode, Sheet)
+On Error Resume Next
+		
+		
+        Dim myTsFList 'As TDAPIOLELib.List
+        Dim myTSFolder 'As TDAPIOLELib.TestSetFolder
+        Dim tsetfact 'As TDAPIOLELib.TestSetFactory
+        Dim tset 'As TDAPIOLELib.TestSet
+        Dim tsetList 'As TDAPIOLELib.List
+        Dim ttstfact 'As TDAPIOLELib.TSTestFactory
+        Dim tstobj 'As TDAPIOLELib.TSTest
+        Dim TestInstFilter 'As TDFilter
+        Dim ttstlist 'As List
+        Dim ttst 'as TSTEST
+         
+		Dim vTestInstanceID '1
+		Dim vTestInstancename '2
+		Dim vTestName '3
+        Dim vTestsetName  '4
+		Dim vPlannedHostName '5
+		Dim vResponsibleTester '6
+		Dim vExecDate '7
+		Dim vExecTime '8
+		Dim vPlannedExecDate '9
+		Dim vPlannedExecTime '10
+
+        'Get folder list from node
+        Set myTsFList = selectednode.Newlist
+        if err.number <> 0 then
+			Output "TraverseTestSetTree: " & Err.Description
+			exit sub
+		end if
+		
+        If Not selectednode.Path = "Root" Then
+
+            'Get test set factory from node folder
+            Set tsetfact = selectednode.TestSetFactory
+    
+            'Get test set list from the factory object
+            Set tsetList = tsetfact.Newlist("")
+    
+            'If folder is empty then exit sub
+            If tsetList.Count = 0 And myTsFList.Count = 0 Then
+                'empty folder
+                Exit Sub
+            End If
+            
+            For Each tset In tsetList
+                'Get test instances in testset
+                
+    
+                Set ttstfact = tset.TSTestFactory
+    
+                Set ttstlist = ttstfact.Newlist("")
+    
+                
+                For Each ttst In ttstlist
+                    Set testItem = ttst.Test
+
+		
+					vTestInstanceID = ttst.ID
+					vTestInstancename = ttst.Name
+					vTestName = testItem.Name
+					vTestsetName  = tset.Name
+					vPlannedHostName = ttst.Field("TC_TESTER_NAME")
+					vResponsibleTester = ttst.Field("TC_TESTER_NAME")
+					vExecDate = ttst.Field("TC_EXEC_DATE")
+					vExecTime = ttst.Field("TC_EXEC_TIME")
+					vPlannedExecDate = ttst.Field("TC_PLAN_CHEDULING_DATE")
+					vPlannedExecTime = ttst.Field("TC_PLAN_SCHEDULING_TIME")
+					
+                        
+                    Sheet.Cells(recordCount, 1).Value = vTestInstanceID
+                    Sheet.Cells(recordCount, 2).Value = vTestInstancename
+                    Sheet.Cells(recordCount, 3).Value = vTestName
+                    Sheet.Cells(recordCount, 4).Value = vTestsetName
+                    Sheet.Cells(recordCount, 5).Value = vPlannedHostName
+                    Sheet.Cells(recordCount, 6).Value = vResponsibleTester
+                    Sheet.Cells(recordCount, 7).Value = vExecDate
+                    Sheet.Cells(recordCount, 8).Value = vExecTime
+                    Sheet.Cells(recordCount, 9).Value = vPlannedExecDate
+                    Sheet.Cells(recordCount, 10).Value = vPlannedExecTime
+
+                    recordCount = recordCount + 1  
+						
+                Next              
+            Next
+
+        End If 'do nothing for root node
+
+        'Loop through each Test Set folder
+        logMessage ("Found " & myTsFList.Count & " subnodes under " & selectednode.Path & ".")
+        For Each myTSFolder In myTsFList
+            logMessage ("Retrieving data for [" & myTSFolder.Path & "] folder.")
+            Call TraverseTestSetTree(myTSFolder, Sheet)
+        Next
+     
+		set myTsFList = nothing
+		set tsetfact = nothing
+		set tsetList = nothing
+		set tset = nothing
+		set ttst = nothing
+		set testItem = nothing
+		
+On Error Goto 0
+End Sub
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'Timestamp for log
+'// 
+'///////////////////////////////////////////////////////////////////////////////////
+Function LZ(ByVal Number)
+  If Number < 10 Then
+    LZ = "0" & CStr(Number)
+  Else
+    LZ = CStr(Number)
+  End If
+End Function
+
+Function getTimeStamp
+  Dim CurrTime
+  CurrTime = Now()
+
+  getTimeStamp = CStr(Year(CurrTime)) & "-" _
+    & LZ(Month(CurrTime)) & "-" _
+    & LZ(Day(CurrTime)) & " " _
+    & LZ(Hour(CurrTime)) & "_" _
+    & LZ(Minute(CurrTime)) & "_" _
+    & LZ(Second(CurrTime))
+End Function
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---Main
+'// 
+'///////////////////////////////////////////////////////////////////////////////////
+Sub Main
+On Error Resume Next
+Dim args
+Dim tdConnection
+Dim QcURL
+Dim QcUser
+Dim QcPassword
+Dim QcDomain
+Dim QcProject
+Dim path
+Dim filename
+Dim Excel 
+Dim Sheet
+
+
+Set args = WScript.Arguments
+QcURL = args.Item(0)
+QcUser = args.Item(1)
+QcPassword = args.Item(2)
+QcDomain = args.Item(3)
+QcProject = args.Item(4)
+FolderPath = args.Item(5)
+Path = args.Item(6)
+filename = "\TestBoard_" & getTimeStamp & ".xlsx"
+
+output "QcURL=" & QcURL
+output "QcDomain=" & QcDomain
+output "QCProject=" & QcProject
+output "FolderPath=" & FolderPath
+output "File Path=" & Path & filename
+
+Set tdConnection = CreateObject("TDApiOle80.TDConnection.1")
+If tdConnection Is Nothing Then
+	WScript.Echo "Could not create TD Connection object"
+Else
+	err.clear
+	tdConnection.InitConnectionEx QcURL
+	If tdConnection.Connected = False Then
+		WScript.Echo "Failed to initialize ALM connection. " & err. description
+		exit sub
+	Else
+		err.clear
+		tdConnection.Login QCUser, QcPassword
+		if err.number <> 0 then
+			WScript.Echo "Failed to authenticate. " & err.description
+			exit sub
+		End if
+		err.clear
+		
+		
+		If tdConnection.LoggedIn = False Then
+			WScript.Echo "Failed to log into ALM. " & err.description
+			exit sub
+		Else
+			err.clear
+			tdConnection.Connect QCDomain, QCProject
+
+			If tdConnection.ProjectConnected = False Then
+				wscript.echo err.description
+			Else
+				wscript.echo "Connecting to project " & QcDomain & "." & QcProject
+				
+				Set objExcel  = CreateObject("Excel.Application") 'Open Excel
+				Set objWorkBook =  objExcel.WorkBooks.Add
+				'Get the first worksheet.
+				Set Sheet = objWorkbook.Worksheets(1)
+
+				'sheet name as Test Board
+				Sheet.Name = "Test Board"
+
+				call GetTestData (tdConnection,Sheet, folderpath)
+				
+				'Save File
+				objWorkBook.SaveAs Path & filename
+				
+				'Close excel
+				objExcel.Quit
+				tdConnection.DisconnectProject
+			End If
+			tdConnection.Logout
+		End If
+		
+		tdConnection.ReleaseConnection
+		set objExcel = nothing
+		set objWorkBook = nothing
+		set Sheet = nothing
+
+	    WScript.Echo "QC Disconnected."
+	End If
+	set tdConnection = nothing
+End If	
+End sub
+
+call Main
