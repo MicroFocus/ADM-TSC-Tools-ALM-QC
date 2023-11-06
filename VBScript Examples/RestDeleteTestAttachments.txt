@@ -1,4 +1,4 @@
-' RestGetTestAttachments.vbs
+' RestDeleteTestAttachments.vbs
 ' Delete attachment from a test using REST API
 ' arg 0: QC URL
 ' arg 1: QC apikey
