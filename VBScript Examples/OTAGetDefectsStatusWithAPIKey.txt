@@ -1,0 +1,319 @@
+' OTAGetDefectsWithApiKey.vbs 
+' retrieve bugs of a given QC project using REST API and API Key
+' arg 0: QC URL
+' arg 1: QC apikey
+' arg 2: QC apisecret
+' arg 3: QC domain
+' arg 4: QC project
+' arg 5: path
+ 
+' call it like
+'c:\windows\syswow64\cscript OTAGetDefectsWithApiKey.vbs https://<almhost>/qcbin/ <apikey> <apisecret> <domain> <project> <path>
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'Write to log file---
+'///////////////////////////////////////////////////////////////////////////////////
+Sub M_out(path ,filename,method, m1)
+	
+	' NewTextEC.vbs
+	' Sample VBScript to write to a file. With added error-correcting
+	' Author Guy Thomas http://computerperformance.co.uk/
+	 ' VBScript Write File
+	' ---------------------------------------------' 
+
+	Dim objFSO, objFolder, objShell, objTextFile, objFile
+	Dim strDirectory, strFile, strText
+	strDirectory = path
+	strFile = filename
+	strText = m1
+
+
+	' Create the File System Object
+	Set objFSO = CreateObject("Scripting.FileSystemObject")
+
+	' Check that the strDirectory folder exists
+	If objFSO.FolderExists(strDirectory) Then
+	   Set objFolder = objFSO.GetFolder(strDirectory)
+	Else
+	   Set objFolder = objFSO.CreateFolder(strDirectory)
+	   'WScript.Echo "Just created " & strDirectory
+	End If
+
+	If objFSO.FileExists(strDirectory & strFile) Then
+	   Set objFolder = objFSO.GetFolder(strDirectory)
+	Else
+	   Set objFile = objFSO.CreateTextFile(strDirectory & strFile)
+	   objFile.close
+	   'Wscript.Echo "Just created " & strDirectory & strFile
+	End If 
+
+	set objFile = nothing
+	set objFolder = nothing
+	' OpenTextFile Method needs a Const value
+	' ForAppending = 8 ForReading = 1, ForWriting = 2
+	Const ForAppending = 8
+
+	Set objTextFile = objFSO.OpenTextFile (strDirectory & strFile, method, True)
+
+	' Writes strText every time you this VBScript
+	objTextFile.WriteLine(strText)
+	objTextFile.Close
+	' End of VBScript to write to a file with error-correcting Code
+
+End Sub
+
+
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'Timestamp for log
+'// 
+'///////////////////////////////////////////////////////////////////////////////////
+Function LZ(ByVal Number)
+  If Number < 10 Then
+    LZ = "0" & CStr(Number)
+  Else
+    LZ = CStr(Number)
+  End If
+End Function
+
+Function getTimeStamp
+  Dim CurrTime
+  CurrTime = Now()
+
+  getTimeStamp = CStr(Year(CurrTime)) & "-" _
+    & LZ(Month(CurrTime)) & "-" _
+    & LZ(Day(CurrTime)) & " " _
+    & LZ(Hour(CurrTime)) & "_" _
+    & LZ(Minute(CurrTime)) & "_" _
+    & LZ(Second(CurrTime))
+End Function
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---'GetDefectStatus
+'// 
+'///////////////////////////////////////////////////////////////////////////////////
+Sub GetDefectStatus(TDConnection, path, filename)
+	On error resume next
+	' Get the bug factory from the tdConnection.
+	wScript.echo "Writing to " & path & "\" & filename
+	M_out path, filename, 8, "Domain,Project,Defect ID,Current Status,Closed,Fixed,New,Open,Rejected,Reopened"
+	
+	
+	Dim com
+	Dim RecSet
+	Dim RecSet2
+	Dim oldDate
+	Dim newDate
+	Dim ClosedCount
+	Dim OpenCount
+	Dim NewCount
+	Dim FixedCount
+	Dim RejectedCount
+	Dim ReopenedCount
+	Dim auditpropertyID
+	Dim DefectID
+	Dim DefectCurrentStatus	
+	Dim ecstr
+	Dim domainName 
+	Dim projectName
+	Dim tempval
+	domainName = tdconnection.domainName
+	projectName = tdconnection.projectName
+	
+	'Get all the defect id
+	set com = TDConnection.Command
+	com.CommandText = "SELECT distinct bg_bug_id, bg_status FROM bug order by bg_bug_id "
+	set RecSet = com.Execute
+ 
+					
+	'Get all the audit log entries for defect	
+	For i = 1 To RecSet.RecordCount
+		On Error Resume Next
+					
+		'Fields from Defect 
+		DefectID = RecSet.FieldValue(0)
+		DefectCurrentStatus = 	 RecSet.FieldValue(1)
+					
+		oldDate = CDate("01/01/1900")
+		newDate = CDate("01/01/1900")
+		ClosedCount = 0
+		OpenCount = 0
+		NewCount = 0
+		FixedCount = 0
+		RejectedCount = 0
+		ReopenCount = 0	
+		tempval	= ""	
+					
+		com.CommandText = "SELECT ap_property_id, au_time FROM AUDIT_LOG,AUDIT_PROPERTIES where au_action_id=ap_action_id and " & _
+						"ap_field_name = 'BG_STATUS' and au_entity_type = 'BUG' and au_entity_id='" & DefectID & "' order by au_action_id asc"
+		set RecSet2 = com.Execute
+
+
+		If RecSet2.RecordCount <> 0 Then
+		
+            'Get the time spent from each status
+            For t = 1 To RecSet2.RecordCount
+					
+						'Fields from audit tables
+                        auditpropertyID = RecSet2.FieldValue(0)
+                        newDate = CDate(RecSet2.FieldValue(1))
+				
+						
+                        com.CommandText = "SELECT ap_old_value,ap_new_value FROM audit_properties where ap_property_id='" & auditpropertyID & "'"
+                        set RecSet3 = com.Execute
+                        
+						oldVal = RecSet3.FieldValue(0)
+						newVal = RecSet3.FieldValue(1)
+						
+						if Err.number <> 0 Then
+							wScript.echo Err.Description
+						end if
+						
+						
+                        
+						If oldVal = tempval Then
+                            If oldDate = CDate("01/01/1900") Then
+                                timeDifference = 0
+                            Else
+                                timeDifference = FormatNumber(DateDiff("d",oldDate, newDate), 2)
+                            End If
+                            Select Case oldVal
+                                Case "Closed"
+                                    ClosedCount = ClosedCount + timeDifference
+                                Case "Open"
+                                    OpenCount = OpenCount + timeDifference
+                                Case "New"
+                                    NewCount = NewCount + timeDifference
+                                Case "Fixed"
+                                    FixedCount = FixedCount + timeDifference
+                                Case "Rejected"
+                                    RejectedCount = RejectedCount + timeDifference
+                                Case "Reopen"
+                                    ReopenCount = ReopenCount + timeDifference
+                                Case Else ' for everything else including null
+
+                            End Select
+                        End If
+						
+                        'For last entry we want the difference between now and the time when the last status was changed
+                        If t = RecSet2.RecordCount Then
+                            timeDifference = FormatNumber(DateDiff("d",newDate, CDate(tdConnection.ServerTime)), 2)
+                            Select Case newVal
+                                Case "Closed"
+                                    ClosedCount = ClosedCount + timeDifference
+                                Case "Open"
+                                    OpenCount = OpenCount + timeDifference
+                                Case "New"
+                                    NewCount = NewCount + timeDifference
+                                Case "Fixed"
+                                    FixedCount = FixedCount + timeDifference
+                                Case "Rejected"
+                                    RejectedCount = RejectedCount + timeDifference
+                                Case "Reopen"
+                                    ReopenCount = ReopenCount + timeDifference
+                                Case Else ' for everything else including null
+
+                            End Select
+
+                        End If
+                        oldDate = newDate
+                        tempval = newVal
+                        RecSet2.Next()
+					
+
+            Next	'loop through audit record
+			ecstr = domainName & "," & ProjectName & "," & DefectID & "," & DefectCurrentStatus &  "," &  ClosedCount &  ","  &  FixedCount & "," & NewCount &  "," &  OpenCount  & "," &  RejectedCount & "," & ReopenCount 
+			M_out path, filename, 8, ecstr
+
+			RecSet.next()
+		End if	'check if there is a defect record
+		
+	Next 'loop through defect
+	set com = nothing
+	set RecSet = nothing
+	set RecSet2 = nothing
+End Sub
+
+'////////////////////////////////////////////////////////////////////////////////////
+'//
+'// ---Main
+'// 
+'///////////////////////////////////////////////////////////////////////////////////
+Sub Main
+On Error Resume Next
+Dim args
+Dim tdConnection
+Dim QcURL
+Dim QcApiKey
+Dim QcApiSecret
+Dim QcDomain
+Dim QcProject
+Dim path
+Dim filename
+Dim BugFact 
+Dim BugList
+Dim bugObj 
+Dim i
+
+Set args = WScript.Arguments
+QcURL = args.Item(0)
+QcApiKey = args.Item(1)
+QcApiSecret = args.Item(2)
+QcDomain = args.Item(3)
+QcProject = args.Item(4)
+Path = args.Item(5)
+filename = "\DefectReport_" & getTimeStamp & ".csv"
+
+wScript.Echo "Server: <" & qcURL & ">"
+wScript.Echo "Domain: <" & QcDomain  & ">"
+wScript.Echo "Server: <" & QcProject  & ">"
+
+
+Set tdConnection = CreateObject("tdapiole80.tdconnection")
+
+If tdConnection Is Nothing Then
+	WScript.Echo "Could not create TD Connection object"
+Else
+
+	err.clear
+	tdConnection.InitConnectionWithApiKeyEx QcURL,QcApiKey,QcApiSecret
+	if err.number <> 0 then 
+		wScript.Echo "Failed to authenticate. Error:" & err.description
+		exit sub
+	end if
+
+	err.clear
+	If tdConnection.LoggedIn = False Then
+			WScript.Echo "Could not log into QC. "  & err.description
+			exit sub
+	Else
+			err.clear
+			tdConnection.Connect QCDomain, QCProject
+
+		If tdConnection.ProjectConnected = False Then
+				wscript.echo "Failed to connect to project." & err.description
+		Else
+				wscript.echo "Connecting to project " & QcDomain & "." & QcProject
+
+				call GetDefectStatus(tdConnection,path,"DefectStatus_" & getTimeStamp & ".csv")
+				
+				stdConnection.DisconnectProject
+		End If
+		
+		tdConnection.Logout
+		tdConnection.ReleaseConnection
+		WScript.Echo "QC Disconnected."
+	End If
+End If	
+
+set tdConnection = nothing
+set BugFact = nothing
+set BugList = nothing
+set bugObj = nothing
+
+End sub
+
+call Main
