@@ -43,7 +43,7 @@ End Sub
 
 '////////////////////////////////////////////////////////////////////////////////////
 '//Parse the login response to get the SRF token
-'//This is only needed for ALM 16 and above when executing on GET requests
+'//This is only needed for ALM 16 and above when executing on non-GET requests
 '///////////////////////////////////////////////////////////////////////////////////
 Function GetSRFToken(allheaders, cookieName)
     On Error resume next
