@@ -20,3 +20,4 @@ __In this repository, you will find examples of Excel macros and VB utiltiies to
 * 13 . __SaaSToolKit_UserManagement__ -An example tool for adding users to project, moving user to viewer group, renaming users, and listing users and group permissions.
 * 14 . __QC_ExportTestsREST__ - VBA example using ALM REST API for exporting tests.
 * 15 . __Test Instance Purge__ - Example tool for purging runs from the Test Instance level.
+* 16 . __Add Test Coverage__ - Example tool for linking Requirements to Tests.
