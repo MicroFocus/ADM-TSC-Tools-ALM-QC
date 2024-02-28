@@ -21,3 +21,4 @@ __In this repository, you will find examples of Excel macros and VB utiltiies to
 * 14 . __QC_ExportTestsREST__ - VBA example using ALM REST API for exporting tests.
 * 15 . __Test Instance Purge__ - Example tool for purging runs from the Test Instance level.
 * 16 . __Add Test Coverage__ - Example tool for linking Requirements to Tests.
+* 17 . __QC_DefectReportREST__ - Excel Macro to exprt defects with all visible fields to an Excel worksheet using REST API. 
