@@ -1,0 +1,252 @@
+' Scheduler.vbs
+' Schedule test set execution
+' arg 0: QC URL
+' arg 1: QC user
+' arg 2: QC password
+' arg 3: QC domain
+' arg 4: QC project
+' arg 5: FolderName
+' arg 6: TestSet
+' arg 7: hostname
+' arg 8: runwhere
+ 
+' call it like
+' cscript Scheduler.vbs https://<almhost>/qcbin/ <user> <password> <domain> <project> <FolderName> <TestSet> <hostname> <runWhere>
+
+Public Sub Output (Content)
+	WScript.StdOut.WriteLine Content
+End Sub
+
+' --- Main ---
+'On Error Resume Next
+Dim args
+Dim tdc
+Dim QcURL
+Dim QcUser
+Dim QcPassword
+Dim QcDomain
+Dim QcProject
+Dim BugFact 
+Dim BugList
+Dim bugObj 
+Dim i
+Dim tsFolderName
+Dim tSetName
+Dim HostName
+Dim runWhere
+
+Set args = WScript.Arguments
+QcURL = args.Item(0)
+QcUser = args.Item(1)
+QcPassword = args.Item(2)
+QcDomain = args.Item(3)
+QcProject = args.Item(4)
+
+tsFolderName = args.Item(5) '"UFT_scripts"
+tSetName = args.Item(6)'"Demo2"
+HostName = args.Item(7)'"phanth4"
+runWhere = args.Item(8)'"RUN_REMOTE"
+
+
+Set tdc = CreateObject("TDApiOle80.TDConnection.1")
+If tdc Is Nothing Then
+	Output "Could not create TD Connection object"
+Else
+	tdc.InitConnectionEx QcURL
+	If tdc.Connected = False Then
+		Output "Could not initialize QC connection"
+	Else
+		tdc.Login QCUser, QcPassword
+		If tdc.LoggedIn = False Then
+			Output "Could not log into QC"
+		Else
+			tdc.Connect QCDomain, QCProject
+
+			If tdc.ProjectConnected = False Then
+				Output "Invalid domain/project"
+			Else
+        			Output "Starting task..."
+				Output "Connecting to project " & QcDomain & "." & QcProject
+
+
+				
+				Call RunTestSet(tsFolderName, tSetName, HostName, runWhere)
+        			Output  "Done!"
+
+				tdc.DisconnectProject
+        		End If
+			tdc.Logout
+		End If
+		tdc.ReleaseConnection
+		output "QC Disconnected."
+	End If
+End If	
+
+
+Public Sub RunTestSet(tsFolderName, tSetName, HostName, runWhere)
+  on error resume next
+' Run the test instances in a test set locally, remotely, or as planned
+' Get status information when running a test set
+
+' This example show how to run a test set in three different ways:
+' * Run all tests on the local machine (where this code runs).
+' * Run the tests on a specified remote machine.
+' * Run the tests on the hosts as planned in the test set.
+    Dim TSetFact 'As TestSetFactory, tsList As List
+    Dim theTestSet 'As TestSet
+    Dim tsTreeMgr 'As TestSetTreeManager
+    Dim tsFolder 'As TestSetFolder
+    Dim Scheduler 'As TSScheduler
+    Dim execStatus 'As ExecutionStatus
+    Dim errmsg
+    Dim tsList 'as List
+    output "RunTestSet Called."
+    
+    
+
+    errmsg = "RunTestSet"
+
+' Get the test set tree manager from the test set factory.
+    'tdc is the global TDConnection object.
+    Set TSetFact = tdc.TestSetFactory
+    Set tsTreeMgr = tdc.TestSetTreeManager
+
+' Get the test set folder passed as an argument to the example code.
+    Dim nPath
+    nPath = "Root\" & Trim(tsFolderName)
+    
+    output "Execution Folder: " & nPath
+	
+    err.clear
+    Set tsFolder = tsTreeMgr.NodeByPath(nPath)
+ 
+    If tsFolder Is Nothing Then
+        'Err.Raise vbObjectError + 1, "RunTestSet", "Could not find folder " & nPath
+        output "Could not find folder " & nPath
+        exit sub
+    End If
+    
+    if err.number <> 0 then
+        output err.description
+        exit sub
+    end if
+      
+    
+' Search for the test set passed as an argument to the example code.
+    err.clear
+    Set tsList = tsFolder.FindTestSets(tSetName)
+    If tsList.Count > 1 Then
+        output "FindTestSets found more than one test set: refine search"
+    ElseIf tsList.Count < 1 Then
+        output "FindTestSets: test set not found"
+    else
+        output "Found Testset:" & tSetName
+    End If
+    
+    Set theTestSet = tsList.Item(1)
+    if err.number <> 0 then
+        output "Could not find testset under " & nPath
+        exit sub
+    end if
+
+    output "Launching Test Set:" & theTestSet.Name
+    
+    
+' Start the scheduler on the local machine.
+    Set Scheduler = theTestSet.StartExecution("")
+
+'Set up for the run depending on where the test instances
+' are to execute.
+    
+    Select Case runWhere
+        
+        Case "RUN_LOCAL"
+        ' Run all tests on the local machine.
+            Scheduler.RunAllLocally = True
+            output "Running Test Set locally."
+
+        Case "RUN_REMOTE"
+        ' Run tests on a specified remote machine.
+            Scheduler.TdHostName = HostName
+            ' RunAllLocally must not be set for
+            ' remote invocation of tests.
+            ' Do not do this:
+            ' Scheduler.RunAllLocally = False
+             output "Running Test Set remotely."
+
+        Case "RUN_PLANNED_HOST"
+        ' Run on the hosts as planned in the test set.
+            Dim TSTestFact 'As TSTestFactory
+            Dim testList 'As List
+            Dim tsFilter 'As TDFilter
+            Dim TSTst 'As TSTest
+        ' Get the test instances from the test set.
+            Set TSTestFact = theTestSet.TSTestFactory
+            Set tsFilter = TSTestFact.Filter
+            tsFilter.Filter("TC_CYCLE_ID") = theTestSet.ID
+            Set testList = TSTestFact.NewList(tsFilter.Text)
+            Debug.Print "Test instances and planned hosts:"
+
+        'For each test instance, set the host to run depending
+        '  on the planning in the test set.
+            For Each TSTst In testList
+                Debug.Print "Name: " & TSTst.Name & " ID: " & TSTst.ID & " Planned Host: " & TSTst.HostName
+                Scheduler.RunOnHost(TSTst.ID) = TSTst.HostName
+            Next 
+    
+            Scheduler.RunAllLocally = False
+            output "Running Test Set on planned host."
+
+    End Select
+' Run the tests.
+    Scheduler.Run
+    
+    
+' Get the execution status object.
+    Set execStatus = Scheduler.ExecutionStatus
+    
+    
+' Track the events and statuses.
+    Dim RunFinished 'As Boolean
+    Dim iter 'As Integer
+    Dim i 'As Integer
+    Dim ExecEventInfoObj 'As ExecEventInfo
+    Dim EventsList 'As List
+    Dim TestExecStatusObj 'As TestExecStatus
+    While ((RunFinished = False) And (iter < 100))
+        iter = iter + 1
+        execStatus.RefreshExecStatusInfo "all", True
+        RunFinished = execStatus.Finished
+        Set EventsList = execStatus.EventsList
+   
+        For Each ExecEventInfoObj In EventsList
+            output  "Event: " & ExecEventInfoObj.EventDate & " " & _
+                    ExecEventInfoObj.EventTime & " " & _
+                    "Event Type: " & ExecEventInfoObj.EventType & " [Event types: " & _
+                    "1-fail, 2-finished, 3-env fail, 4-timeout, 5-manual]"
+        Next
+        
+        output execStatus.Count & " exec status"
+        For i = 1 To execStatus.Count
+            Set TestExecStatusObj = execStatus.Item(i)
+            output "Iteration " & iter & " Status: " & _
+                        " Test " & TestExecStatusObj.testID & _
+                        " ,Test instance " & TestExecStatusObj.TestInstance & _
+                        " ,order " & TestExecStatusObj.TSTestID & " " & _
+                        TestExecStatusObj.Message & ", status=" & _
+                        TestExecStatusObj.Status
+        Next 
+        'Sleep() has to be declared before it can be used.
+        'This is the module level declaration of Sleep():
+        'Declare Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)
+        Dim dteWait
+	dteWait = DateAdd("s", 5, Now())
+	Do Until (Now() > dteWait)
+	Loop
+        
+    Wend 'Loop While execStatus.Finished = False
+  
+    output "Scheduler finished around " & CStr(Now)
+    
+On error goto 0
+End Sub
