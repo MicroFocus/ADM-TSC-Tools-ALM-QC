@@ -1,0 +1,82 @@
+'Notes:  You will need to add a new memo field for adding additional comment.
+'The code below assume that the new memo field is BG_USER_25
+
+'///////////////////////////////////////////////////////////////////////////////
+'Defect script
+'///////////////////////////////////////////////////////////////////////////////
+
+Sub Bug_MoveTo
+
+  'Make R&D Comment readonly
+  Bug_Fields("BG_DEV_COMMENTS").IsReadOnly = True
+ 
+End Sub  
+
+
+Sub Bug_FieldChange(FieldName)
+  On Error Resume Next
+  'Clear the the Additional Comment field
+  if Bug_Fields.Field("BG_USER_25").Value <> "" then
+     Bug_Fields.Field("BG_USER_25").Value = ""
+  end if
+  On Error GoTo 0
+End Sub
+
+Function Bug_FieldCanChange(FieldName, NewValue)
+  On Error Resume Next
+
+   'User has added comments
+  If FieldName = "BG_USER_25" THEN
+
+
+     result = msgbox("Yes or No?", vbYesNo,"Do you want to add the text to R&D Comment?")
+     select case result
+     case vbYes
+          set bFact = TDConnection.BugFactory
+          set bFilter = bFact.filter
+          bFilter.Filter("BG_BUG_ID") = "" & Bug_Fields.Field("BG_BUG_ID").Value & ""
+          set bList = bFilter.newlist
+          set currBug = bList.Item(1)
+          currCommentValue = replace(replace(currBug.Field("BG_DEV_COMMENTS"),"</body>",""),"</html>","")
+          newCommentValue =  replace(replace(NewValue,"<html>",""),"<body>","")
+
+          if err.number <> 0 then
+               msgbox err.description
+          end if
+
+
+
+          commentSeperator = "<div align=""left"" style=""min-height: 9pt; "">" &_
+                             "<font face=""Arial""><span style=""font-size:8pt""><br /></span></font>" & _
+                             "<font face=""Arial"" color=""#000080""><span style=""font-size:8pt""><b>________________________________________</b></span></font>" & _
+                             "<font face=""Arial""><span style=""font-size:8pt""><br /></span></font>"
+
+          if  User.FullName = "" then
+           uname =  "<font face=""Arial"" color=""#000080""><span style=""font-size:8pt""><b>" & _
+                       User.UserName  & ", " &  date &  ": </b></span></font></div>"
+          else
+           uname =  "<font face=""Arial"" color=""#000080""><span style=""font-size:8pt""><b>" & _
+                       User.FullName & " &lt;" & User.UserName  & "&gt;, " &  date &  ": </b></span></font></div>"
+          end if
+
+          RAndDComment =  currCommentValue & commentSeperator & uname & newCommentValue
+
+          if instr(RAndDComment,"<html>") = 0 then
+             RAndDComment = "<html><body>" & RAndDComment
+          end if
+           if instr(RAndDComment,"/<html>") = 0 then
+             RAndDComment = RAndDComment & "</body></html>"
+          end if
+
+
+          currBug.Field("BG_DEV_COMMENTS") = RAndDComment
+          currBug.post
+     case vbNo
+
+     end Select
+
+  End if
+
+  Bug_FieldCanChange = DefaultRes
+  On Error GoTo 0
+End Function

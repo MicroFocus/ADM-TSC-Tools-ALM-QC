@@ -1,0 +1,27 @@
+'Send defect email
+
+Function Template_Bug_User_Email()
+  On Error Resume Next
+
+  ' email engine - to send emails that meet with American Express security standards
+
+      Dim td
+      Set td = TDConnection
+
+      emailTo = Bug_Fields("BG_RESPONSIBLE").Value
+      emailFrom = Bug_Fields("BG_DETECTED_BY").Value
+      projID = "Project ID: "
+      domName = "Domain Name: " & td.DomainName
+      projName = "Project Name: " & td.ProjectName
+      defID = "Defect ID: " & Bug_Fields.Field("Defect ID").Value
+
+      emailSubject = projID & "," & domName & "," & projName & "," & defID
+
+      emailBody = "<b>Please do not reply to this email.</b><br><br>HP Software as a Service"
+
+      td.SendMail emailTo , emailFrom , emailSubject, emailBody , , "HTML"
+
+      Set td = Nothing
+
+  On Error GoTo 0
+End Function
