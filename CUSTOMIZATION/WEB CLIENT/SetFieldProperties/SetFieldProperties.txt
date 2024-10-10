@@ -1,0 +1,8 @@
+function SetFieldApp(fieldName, Vis, Req, PNo, VOrder){
+    var bugfield = Bug_Fields(fieldName);
+    bugfield.IsVisible = Vis;
+    bugfield.IsRequired = Req;
+    bugfield.PageNo = PNo;
+    bugfield.ViewOrder = VOrder;
+    console.log("SetFieldApp");
+}

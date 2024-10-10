@@ -1,0 +1,18 @@
+function Bug_FieldChange(fieldName) {
+    if (fieldName == "BG_STATUS")
+    {
+        if (Bug_Fields("BG_STATUS").Value == "Closed")
+        {
+            Bug_Fields("BG_CLOSING_VERSION").IsRequired=true;
+        }
+        else 
+        {
+            Bug_Fields("BG_CLOSING_VERSION").IsRequired=false;
+        }
+    }
+    else 
+    {
+        // Enter your code here.;
+    }
+    console.log("Bug_FieldChange");
+}

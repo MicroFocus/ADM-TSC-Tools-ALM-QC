@@ -1,0 +1,49 @@
+'Saas_TP Implement Recycle Bin code
+Function Req_CanDelete(Entity)
+  On Error Resume Next
+'RecycleBin feature for Requirement module
+  If User.IsInGroup("TDAdmin") Then
+     if Entity.Path = "Requirements\_Recycle Bin" then
+        Req_CanDelete = false
+     else
+        Req_CanDelete = true
+     end if
+
+  Else
+     Req_CanDelete = False
+     if not inRecycleBinReq(Entity.Path) then
+        Msgbox "Moving selected requirement to Recycle Bin."
+        Entity.move CLng(RecycleBin_Req), -4
+        Entity.Post
+        Actions.Action("actFilterRefresh").Execute
+     else
+      msgbox "You do not have the required permission to permanently delete this requirement."
+     end if
+  End if
+  On Error GoTo 0
+End Function
+
+'Check to see if a folder is under the Recycle Bin
+Function inRecycleBinReq(sourceFolderPath)
+On Error Resume Next
+    If instr(sourceFolderPath,"Requirements\_Recycle Bin") > 0 then
+       inRecycleBinReq = true
+    else
+       inRecycleBinReq = False
+    end if
+
+On Error GoTo 0
+End Function
+
+Function Req_FieldCanChange(FieldName, NewValue)
+  On Error Resume Next
+     'Prevent Folder from being renamed
+     If FieldName = "RQ_REQ_NAME" then
+        if clng(Req_Fields.Field("RQ_REQ_ID").Value) = clng(RecycleBin_Req) then
+         Req_FieldCanChange = false
+         exit function
+        end if
+     End if
+  Req_FieldCanChange = DefaultRes
+  On Error GoTo 0
+End Function

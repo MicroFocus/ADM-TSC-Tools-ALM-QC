@@ -1,0 +1,19 @@
+'///////////////////////////////////////////////////////////////////////////////
+'Check to make sure user is not a member of System Defined Group except TDAdmin
+'///////////////////////////////////////////////////////////////////////////////
+Function Template_CanLogin(DomainName, ProjectName, UserName)
+  On Error Resume Next
+  'checks to see if the user logging in has been added to any of the out of the box user groups that cannot be configured
+
+  IF user.IsInGroup("TDAdmin") = FALSE Then
+      IF user.IsInGroup("Developer") OR user.IsInGroup("QATester") OR user.IsInGroup("Project Manager") OR user.IsInGroup("Viewer") Then
+          Template_CanLogin = FALSE
+          message = "Your QC ID for this project has been set up incorrectly." & vbCR &_
+                        "              Please contact support for assistance."
+          msgbox message,vbOKOnly, "Micro Focus"
+          exit Function
+      End IF
+  End IF
+
+  Template_CanLogin = Template_DefaultRes
+End Function

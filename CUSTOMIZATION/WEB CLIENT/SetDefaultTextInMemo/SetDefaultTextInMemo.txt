@@ -1,0 +1,5 @@
+ function Bug_New() 
+{
+           Bug_Fields("BG_USER_25").Value = "<html><body><b>Step by step scenario:</b>" + "<br><br><br><b>How it affects the user:</b></body></html>";
+           console.log("Bug_New");
+}

@@ -1,0 +1,42 @@
+function Bug_MoveTo() {
+    SW_SetLists_Environment();
+    console.log("Bug_MoveTo");
+}
+
+
+function Bug_FieldChange(fieldName) {
+    if (fieldName  == "BG_USER_01")
+    {
+        SW_SetLists_Environment();
+    }
+    else
+    {
+        // Enter your code here.
+    }
+    console.log("Bug_FieldChange");
+}
+
+
+function SW_SetLists_Environment() 
+{
+    var listName;
+    switch (Bug_Fields("BG_USER_01").Value) 
+      {
+            case "Browser":
+                listName = "Browsers";
+                break;
+            case "Database Type":
+                listName = "Database Type";
+                break;
+            case "Operating System":
+                listName = "Platform";
+                break;
+            case "Web Server":
+                listName = "Web Server";
+                break;
+            default:
+                listName = "Environment Specification";
+        }
+    Bug_Fields("BG_USER_02").List = Lists(listName);
+    console.log("Set Environment List");
+}

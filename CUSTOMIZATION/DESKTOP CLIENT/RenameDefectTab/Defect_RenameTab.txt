@@ -1,0 +1,21 @@
+'Rename defect detail tab name
+
+Function Template_User_GetDefectPageName (PageNum)
+On Error Resume Next
+
+Select CASE PageNum
+    CASE "1"
+        Template_User_GetDefectPageName="Incident Details"
+    CASE "2"
+        Template_User_GetDefectPageName="Page 2"
+    CASE "3"
+        Template_User_GetDefectPageName="Page 3"
+    CASE "4"
+        Template_User_GetDefectPageName="Page 4"
+    CASE Else
+        Template_User_GetDefectPageName="Details"
+    End Select
+
+On Error GoTo 0
+
+End Function

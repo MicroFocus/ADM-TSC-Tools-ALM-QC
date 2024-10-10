@@ -1,0 +1,301 @@
+'Note: You will need to create a button in the Template_TestPlan toolbar.  The Action Name is "Template_TestPlan_SetupExecution".  The code allows only user from "TESTMGR" the ability
+'to run the code to duplicate folder structure from Test Plan to Test Lab
+
+'///////////////////////////////////////////////////////////////////////////////
+'Common script
+'///////////////////////////////////////////////////////////////////////////////
+Sub Template_DialogBox(DialogBoxName, IsOpen)
+  'Use ActiveModule and ActiveDialogName to get
+  'the current context.
+  On Error Resume Next
+
+  'Added by saas_tphan to prevent users from invoking the duplicate button from New Test dialog window
+  If DialogBoxName = "New Test" and IsOpen = true then
+      Actions.Action("UserDefinedActions.Template_TestPlan_SetupExecution").Visible = false
+  End if
+  'call DialogBox(DialogBoxName, IsOpen)
+  On Error GoTo 0
+End Sub
+
+
+'///////////////////////////////////////////////////////////////////////////////
+'Test Plan Script
+'///////////////////////////////////////////////////////////////////////////////
+
+'Declared variables for storing Subject folder selected
+Dim SubjectFolderSelected
+SubjectFolderSelected = -1
+
+Sub Template_TestFolder_MoveTo
+  On Error Resume Next
+  'saas_tphan - get the selected folder ID
+  SubjectFolderSelected = cint(TestFolder_Fields.Field("AL_ITEM_ID").Value)
+
+  'call TestFolder_MoveTo
+  On Error GoTo 0
+End Sub
+
+Sub Template_Test_MoveTo
+  On Error Resume Next
+  'saas_tphan - reset variable if test is selected
+  SubjectFolderSelected = -1
+  'call Test_MoveTo
+  On Error GoTo 0
+End Sub
+
+Function Template_TestPlan_ActionCanExecute(ActionName)
+   If ActionName = "UserDefinedActions.Template_TestPlan_SetupExecution"  then
+
+    If  User.IsInGroup("TESTMGR")  then
+      If SubjectFolderSelected <> -1  and SubjectFolderSelected <> 2 and SubjectFolderSelected <> 0 then
+
+         Dim plannedExecutionDate
+         Dim responsibleTester
+         plannedExecutionDate = ""
+         responsibleTester = ""
+
+         Actions.Action("TestPlan.Refresh").Execute
+         plannedExecutionDate  = inputbox("Please enter the Planned Execution Date (dd/mm/yyyy):" )
+
+         if  isempty(plannedExecutionDate) then
+             Template_TestPlan_ActionCanExecute = false
+             exit Function
+         elseif not isdate(plannedExecutionDate) then
+             msgbox("Invalid Planned Execution date:" & plannedExecutionDate)
+             Template_TestPlan_ActionCanExecute = false
+             exit Function
+         elseif  datediff("d",now,plannedExecutionDate) < 0 then
+             msgbox("Planned Execution date cannot be older than today date: " & plannedExecutionDate)
+             Template_TestPlan_ActionCanExecute = false
+             exit Function
+         End if
+
+         responsibleTester = inputbox("Please enter the Responsible Tester:")
+
+         if isempty(responsibleTester) then
+            TestPlan_ActionCanExecute = false
+            exit Function
+         elseif not isuser(responsibleTester) then
+            msgbox("Invalid Responsible Tester: " & responsibleTester)
+            TestPlan_ActionCanExecute = false
+            exit Function
+         End if
+
+         call DuplicateTP(plannedExecutionDate,responsibleTester)
+      End if
+    Else
+       msgbox("Only members of TESTMGR role can execute this action.")
+    End if
+   End if
+
+   Template_TestPlan_ActionCanExecute = true
+End Function
+
+'///////////////////////////////////////////////////////////////////////////////
+'Check to make sure user exists in project
+'///////////////////////////////////////////////////////////////////////////////
+Function isUser(username)
+   On Error Resume Next
+   Dim userFound
+   Dim custusers
+   Dim custuser
+   userFound = False
+
+   If username = "" Then
+      isUser = False
+      Exit Function
+   End If
+   Set cust = TDConnection.Customization
+   Set custusers = cust.Users
+   Set custuser = custusers.user(CStr(LCase(username)))
+
+   If Err.Number <> 0 Then
+      MsgBox Err.Description
+      userFound = False
+   Else
+      userFound = True
+   End If
+
+   Set cust = Nothing
+   Set custusers = Nothing
+   Set custuser = Nothing
+   isUser = userFound
+   On Error GoTo 0
+End Function
+
+
+'///////////////////////////////////////////////////////////////////////////////
+'Main function to start the duplication
+'///////////////////////////////////////////////////////////////////////////////
+Sub DuplicateTP(plannedExecutionDate,responsibleTester)
+     On Error resume Next
+     Dim TreeMgr
+     Dim selectedNode
+     Dim childrenList
+     Dim selectedTestsetFolderID
+     SelectedTestsetFolderID = 0
+
+     'Get the path of the subject folder selected
+     Set TreeMgr = TDConnection.TreeManager
+     Set selectedNode = TreeMgr.NodeByID(subjectFolderSelected)
+     selectedSubjectFolderPath = selectedNode.path
+
+
+     'Check if TestSet Folder already exist
+     testsetFolderPath = Replace(selectedSubjectFolderPath, "Subject", "Root")
+     Set TestSetTreeMgr = TDConnection.TestSetTreeManager
+     Set testsetFolderParent = TestSetTreeMgr.nodebypath(testsetFolderPath)
+     If Err.Number <> 0 Then
+        'Only duplicate the folder up to the selected node and not below it
+        Set testsetFolderParent = CreateTestSetFoldersFromSubjectPath(selectedNode.path)
+     End If
+
+     Call DuplicateSubTreeInTestSet(testsetFolderParent, selectedNode, plannedExecutionDate, responsibleTester)
+
+     call DuplicateSubTreeInTestSet(selectedTestsetFolderID, selectedNode,plannedExecutionDate,responsibleTester)
+
+     msgbox "Done."
+
+     Set TDConnection = Nothing
+     Set TreeMgr = Nothing
+     Set selectedNode = Nothing
+     Set TestSetTreeMgr = Nothing
+     Set testsetFolderParent = Nothing
+     On Error GoTo 0
+End Sub
+
+'///////////////////////////////////////////////////////////////////////////////
+'Duplicate the subject tree in the Test Lab module
+'///////////////////////////////////////////////////////////////////////////////
+Public Sub DuplicateSubTreeInTestSet(testsetFolderParent, selectedSubjectNode, plannedExecutionDate, responsibleTester)
+        On Error Resume Next
+
+        Dim myTestList            'As TDAPIOLELib.List
+        Dim mySubjectList         'As TDAPIOLELib.List
+        Dim mySubjectFolder       'As TDAPIOLELib.SubjectNode
+        Dim tfact                 'As TDAPIOLELib.TestFactory
+        Dim mytest                'As TDAPIOLELib.Test
+        Dim newTestSet
+        Dim tempTestsetFolderID
+        Dim tempTestsetFolder
+        Dim tstFact
+        Dim currTstTest
+
+        'Get folder list from node
+        Set mySubjectList = selectedSubjectNode.newlist
+
+        For Each mySubjectFolder In mySubjectList
+            Set tempTestsetFolder = CreateTestSetFolder(testsetFolderParent, mySubjectFolder.Name)
+
+            'Get test factory from node folder
+            Set tfact = mySubjectFolder.TestFactory
+
+            'Get test  list
+            Set myTestList = tfact.newlist("")
+
+            If myTestList.Count > 0 Then
+                Set newTestSet = CreateTestSet(tempTestsetFolder)
+            End If
+
+            'Add test to test set
+            For Each mytest In myTestList
+                Set tstFact = newTestSet.tstestfactory
+                Set currTstTest = tstFact.AddItem(mytest.ID)
+                currTstTest.Field("TC_PLAN_SCHEDULING_DATE") = plannedExecutionDate
+                currTstTest.Field("TC_TESTER_NAME") = responsibleTester
+                currTstTest.Post
+            Next
+            Call DuplicateSubTreeInTestSet(tempTestsetFolder, mySubjectFolder, plannedExecutionDate, responsibleTester)
+        Next
+
+        Set mySubjectList = Nothing
+        Set tfact = Nothing
+        Set myTestList = Nothing
+        Set newTestSet = Nothing
+        Set currTstTest = Nothing
+        On Error GoTo 0
+End Sub
+
+'///////////////////////////////////////////////////////////////////////////////
+'Create Test Set Folder from selected Subject node path
+'///////////////////////////////////////////////////////////////////////////////
+Function CreateTestSetFoldersFromSubjectPath(path)
+        On Error Resume Next
+        Dim folderNameArray
+        Dim folderName
+        Dim testsetFolderPath
+        Dim parentFolderNode
+
+        testsetFolderPath = Replace(path, "Subject", "Root")
+        folderNameArray = Split(testsetFolderPath, "\")
+        Set TestSetTreeMgr = TDConnection.TestSetTreeManager
+
+        For i = 0 To UBound(folderNameArray)
+
+            If folderNameArray(i) = "Root" Then
+                Set parentFolderNode = TestSetTreeMgr.Root
+            Else
+                folderName = folderNameArray(i)
+                Set parentFolderNode = CreateTestSetFolder(parentFolderNode, folderName)
+            End If
+        Next
+
+        Set CreateTestSetFoldersFromSubjectPath = parentFolderNode
+        Set parentFolder = Nothing
+        set parentFolderNode = nothing
+        set TestSetTreeMgr = nothing
+        On Error GoTo 0
+End Function
+
+'///////////////////////////////////////////////////////////////////////////////
+'Create Test Set Folder under under given node
+'///////////////////////////////////////////////////////////////////////////////
+Function CreateTestSetFolder(parentFolderNode, folderName)
+        On Error Resume Next
+        Dim TestSetTreeMgr
+        Dim selectedNode
+        Dim treeRoot
+        Dim newnode
+
+        Set TestSetTreeMgr = TDConnection.TestSetTreeManager
+        Set newnode = TestSetTreeMgr.nodebypath(parentFolderNode.path & "\" & folderName)
+        If Err.Number <> 0 Then
+            'Create new node if folder not found
+            Set newnode = parentFolderNode.AddNode(folderName)
+            parentFolderNode.Post
+        End If
+
+        Set CreateTestSetFolder = newnode
+        Set TestSetTreeMgr = Nothing
+        Set newnode = Nothing
+        On Error GoTo 0
+End Function
+
+'///////////////////////////////////////////////////////////////////////////////
+'Create test set under given node
+'///////////////////////////////////////////////////////////////////////////////
+Function CreateTestSet(selectedNode)
+        On Error Resume Next
+        Dim testSetFolderF
+        Dim currTestSet
+        Dim tsList
+        Dim tsFact
+
+        Set tsFact = selectedNode.testsetfactory
+        Set testsetFilter = tsFact.Filter
+        testsetFilter.Field("CY_CYCLE") = "'" & selectedNode.Name & "'"
+        Set tsList = tsFact.newlist(testsetFilter.Text)
+        If tsList.Count > 0 Then
+            currTestSet = tsList(0)
+        Else
+            Set currTestSet = tsFact.AddItem(Null)
+            currTestSet.Name = selectedNode.Name
+            currTestSet.Post
+        End If
+        Set CreateTestSet = currTestSet
+
+        Set tsList = Nothing
+        Set currTestSet = Nothing
+        Set tsFact = Nothing
+        On Error GoTo 0
+End Function

@@ -1,0 +1,9 @@
+function PrintError(strFunctionName)
+{
+    try {
+        // Enter your code here.
+     }
+    catch(err) {
+       MsgBox("Error #" + "Workflow Error in Function " + strFunctionName + err.message);
+     }
+}

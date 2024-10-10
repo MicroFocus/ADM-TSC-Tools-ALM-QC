@@ -1,0 +1,12 @@
+ function Bug_New() 
+{
+        if (!(User.IsInGroup("QATester")))
+        {
+             Bug_Fields("BG_USER_01").Value = "BTW";
+        }
+        else
+        {
+          Bug_Fields("BG_USER_01").Value = "Formal testing";
+        }
+        console.log("Bug_New");
+}

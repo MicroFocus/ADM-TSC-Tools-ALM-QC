@@ -1,0 +1,4 @@
+function Bug_New() {
+  debugger
+  console.log("Bug_New triggered")
+}
