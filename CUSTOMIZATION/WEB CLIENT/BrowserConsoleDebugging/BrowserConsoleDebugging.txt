@@ -1,4 +1,12 @@
-function Bug_New() {
-  debugger
-  console.log("Bug_New triggered")
+function CanLogin(domainName, projectName, userName) 
+{
+   //Execute problematic code
+   //Example: Undefined function
+   myfunction("hello");
+
+  //1. For Chrome, use Ctrl + Shift + J to bring up Console.
+  //2. You will need to repeat in the process of logging into ALM Web Client in order to see the console log
+  //3. Look under error to check for the ReferenceError: myfunction is not defined
+
+  return true;
 }
