@@ -1,0 +1,221 @@
+{
+	"info": {
+		"_postman_id": "4d810e5e-29a1-44c2-90d2-a44108f3e62a",
+		"name": "Get SaaS Customer ID",
+		"description": "Select the \"ALM\" environment and update the following fields:\n\n- ALMServer - in the format: [https://almserver/qcbin](https://almserver/qcbin)\n    \n- If authenticating using APIKey and APISecret use the relevant fields and execute \"Login_APIKey\" to authenticate.\n    \n- If authenticating using Username and Password use the relevant fields and execute \"Login_Username1\" and \"Login_Username2\" to authenticate.\n    \n\nNOTE: either of these authentication mechanisms will populate the xsrf token.\n\n- \"Check - is authenticated\" is optional in case you wish to verify the authenticated user.\n    \n- \"Get Customer ID\" will populate the \"customerID\" variable.\n    \n- Use \"Logout\" once you're ready to logout.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "7964502",
+		"_collection_link": "https://almrest.postman.co/workspace/ALM-Example-(shared)~8ad7e1a4-2066-49a7-ae74-fe82aa1678e8/collection/7964502-4d810e5e-29a1-44c2-90d2-a44108f3e62a?action=share&source=collection_link&creator=7964502"
+	},
+	"item": [
+		{
+			"name": "Login_APIKey",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"var xsrfToken = pm.cookies.get(\"XSRF-TOKEN\");\r",
+							"pm.environment.set(\"xsrfToken\",xsrfToken);"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"clientId\": {{APIKey}}, \"secret\": {{APISecret}}}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{ALMServer}}/rest/oauth2/login",
+					"host": [
+						"{{ALMServer}}"
+					],
+					"path": [
+						"rest",
+						"oauth2",
+						"login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Login_Username1",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "<alm-authentication>\r\n        <user>{{Username}}</user>\r\n        <password>{{Password}}</password>\r\n    </alm-authentication>",
+					"options": {
+						"raw": {
+							"language": "xml"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{ALMServer}}/authentication-point/alm-authenticate",
+					"host": [
+						"{{ALMServer}}"
+					],
+					"path": [
+						"authentication-point",
+						"alm-authenticate"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Login_Username2",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"var xsrfToken = pm.cookies.get(\"XSRF-TOKEN\");\r",
+							"pm.environment.set(\"xsrfToken\",xsrfToken);"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"url": {
+					"raw": "{{ALMServer}}/rest/site-session",
+					"host": [
+						"{{ALMServer}}"
+					],
+					"path": [
+						"rest",
+						"site-session"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Check - is authenticated",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				},
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{ALMServer}}/v2/rest/is-authenticated",
+					"host": [
+						"{{ALMServer}}"
+					],
+					"path": [
+						"v2",
+						"rest",
+						"is-authenticated"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Customer ID",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"let responseData = pm.response.json();\r",
+							"pm.environment.set(\"customerID\", responseData.role[\"customer-id\"]);"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{ALMServer}}/v2/sa/api/permissions",
+					"host": [
+						"{{ALMServer}}"
+					],
+					"path": [
+						"v2",
+						"sa",
+						"api",
+						"permissions"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Logout",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "X-XSRF-TOKEN",
+						"value": "{{xsrfToken}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{ALMServer}}/authentication-point/logout",
+					"host": [
+						"{{ALMServer}}"
+					],
+					"path": [
+						"authentication-point",
+						"logout"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
