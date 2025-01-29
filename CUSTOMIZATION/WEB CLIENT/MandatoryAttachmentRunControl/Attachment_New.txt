@@ -1,0 +1,5 @@
+function Attachment_New(attachment) {
+	if (ActiveModule === "ManualRun"){
+		Run_Fields("RN_USER_01").Value = "Y" ;
+	}
+}

@@ -1,0 +1,11 @@
+function Run_CanPost() {
+var Run_CanPost = true ;
+	
+if (Run_Fields("RN_STATUS").Value =="Passed"){
+	if (Run_Fields("RN_USER_01").Value != "Y"){
+		MsgBox ("Attachment required");
+		Run_CanPost = false;
+	}
+ }
+	return Run_CanPost;
+}
